@@ -3,6 +3,7 @@ import json
 
 import numpy as np
 from nltk import word_tokenize
+from tqdm import tqdm
 
 from metric import rouge_L
 
@@ -27,13 +28,13 @@ def buildProxyTargets():
 
     for dir in dirs:
         file_path_list = glob.glob('data/cnn-dailymail/' + dir + '/*.json')
-        for file_path in file_path_list:
-            print(file_path)
+        for file_path in tqdm(file_path_list):
             try:
                 with open(file_path, 'r', encoding='utf-8') as file:
                     data = json.loads(file.read())
-            except:
+            except Exception as e:
                 print(file_path)
+                print(e)
                 return
             tokenized_art = [word_tokenize(art_sent) for art_sent in data['article']]
             tokenized_abs = [word_tokenize(abs_sent) for abs_sent in data['abstract']]
