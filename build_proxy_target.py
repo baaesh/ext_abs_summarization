@@ -11,6 +11,8 @@ from metric import rouge_L
 def getProxyLabels(art, abs):
     labels = []
     scores = []
+    positions = []
+    indexes = [i for i in range(len(art))]
     for abs_sent in abs:
         if len(art) == 0:
             break
@@ -18,8 +20,10 @@ def getProxyLabels(art, abs):
         index = np.argmax(rouges)
         labels.append(art[index])
         scores.append(rouges[index])
+        positions.append(indexes[index])
         del art[index]
-    return labels, scores
+        del indexes[index]
+    return labels, positions, scores
 
 
 def buildProxyTargets():
@@ -38,9 +42,10 @@ def buildProxyTargets():
                 return
             tokenized_art = [word_tokenize(art_sent) for art_sent in data['article']]
             tokenized_abs = [word_tokenize(abs_sent) for abs_sent in data['abstract']]
-            labels, scores = getProxyLabels(tokenized_art, tokenized_abs)
+            labels, positions, scores = getProxyLabels(tokenized_art, tokenized_abs)
 
             data['extracted'] = [' '.join(label_sen) for label_sen in labels]
+            data['position'] = positions
             data['score'] = scores
             with open(file_path, 'w', encoding='utf-8') as file:
                 json.dump(data, file, indent=4)
