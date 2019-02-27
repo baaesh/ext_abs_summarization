@@ -46,12 +46,17 @@ class CnnDm():
             print("Finished")
 
         # Iterator
-        self.train_iterator = BucketIterator(sorting_keys=[("article", "num_fields")],
+        if opt['mode'] == 'a':
+            sorting_keys = [('extracted', 'num_tokens')]
+        else:
+            sorting_keys = [('article', 'num_fields')]
+
+        self.train_iterator = BucketIterator(sorting_keys=sorting_keys,
                                              batch_size=opt['batch_size'],
                                              track_epoch=True,
                                              max_instances_in_memory=math.ceil(
                                                  train_reader.total_instances * opt['lazy_ratio']))
-        self.valid_iterator = BucketIterator(sorting_keys=[("article", "num_fields")],
+        self.valid_iterator = BucketIterator(sorting_keys=sorting_keys,
                                              batch_size=opt['batch_size'],
                                              track_epoch=True)
         self.train_iterator.vocab = vocab
