@@ -1,3 +1,5 @@
+import os
+import math
 import glob
 import json
 
@@ -6,12 +8,52 @@ from typing import Dict, List
 from overrides import overrides
 
 from allennlp.common.tqdm import Tqdm
-from allennlp.data import Token
+from allennlp.data import Vocabulary
 from allennlp.data.fields import TextField, ListField, IndexField
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data import Instance
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
 from allennlp.data.tokenizers.tokenizer import Tokenizer
+from allennlp.data.tokenizers.word_tokenizer import WordTokenizer
+from allennlp.data.iterators.bucket_iterator import BucketIterator
+
+
+class CnnDm():
+
+    def __init__(self, opt):
+        super(CnnDm, self).__init__()
+        self.opt = opt
+        wordTokenizer = WordTokenizer()
+        train_reader = CnnDmReader(tokenizer=wordTokenizer, lazy=True,
+                                   mode=opt['mode'], type='train')
+        valid_reader = CnnDmReader(tokenizer=wordTokenizer, lazy=True,
+                                   mode=opt['mode'], type='valid',
+                                   tqdm=False)
+        self.train_instances = train_reader.read(opt['train_path'])
+        self.valid_instances = valid_reader.read(opt['valid_path'])
+
+        # Load or Build Vocab
+        if os.path.isdir(opt['vocab_dir']) and os.listdir(opt['vocab_dir']):
+            print("Loading Vocabulary")
+            train_reader.set_total_instances(opt['train_path'])
+            valid_reader.set_total_instances(opt['valid_data'])
+            vocab = Vocabulary.from_files(opt['vocab_dir'])
+        else:
+            print("Building Vocabulary")
+            vocab = Vocabulary.from_instances(self.train_instances)
+            vocab.save_to_files(opt['vocab_dir'])
+
+        # Iterator
+        self.train_iterator = BucketIterator(sorting_keys=[("article", "num_tokens")],
+                                        batch_size=opt['batch_size'],
+                                        track_epoch=True,
+                                        max_instances_in_memory=math.ceil(
+                                            train_reader.total_instances * opt['lazy_ratio']))
+        self.valid_iterator = BucketIterator(sorting_keys=[("article", "num_tokens")],
+                                        batch_size=opt['batch_size'],
+                                        track_epoch=True)
+        self.train_iterator.vocab = vocab
+        self.valid_iterator.vocab = vocab
 
 
 @DatasetReader.register("cnn-dailymail")
@@ -21,17 +63,18 @@ class CnnDmReader(DatasetReader):
                  tokenizer: Tokenizer = None,
                  token_indexers: Dict[str, TokenIndexer] = None,
                  lazy: bool = False,
-                 max_len: int = 100,
                  tqdm: bool = True,
-                 mode: str = 'r'):
+                 mode: str = 'r',
+                 type: str = 'train'):
         super(CnnDmReader, self).__init__(lazy)
-        self._tokenizer = tokenizer
+        self._tokenizer = tokenizer or WordTokenizer()
         self._token_indexers = token_indexers or \
                                {"tokens": SingleIdTokenIndexer()}
-
-        self._max_len = max_len
         self._tqdm = tqdm
-        self._mode = mode   # e, a, r
+        self._mode = mode   # extractor, abstracter, reinforcement
+        self._type = type   # train, valid, test
+        if type == 'test':
+            assert mode == 'r'
 
     def _read(self, dir_path):
         file_path_list = glob.glob(dir_path + '/*.json')
@@ -41,13 +84,13 @@ class CnnDmReader(DatasetReader):
         for example_num, file_path in enumerate(file_path_list):
             with open(file_path, 'r', encoding="utf-8") as file:
                 data = json.loads(file.read())
-            article = data['article']
-            abstract = data['abstract']
-            extracted = data['extracted']
-            position = data['position']
-            yield self.text_to_instance(article, abstract, extracted, position)
+            if type != 'test':
+                yield self.text_to_instance(data['article'], data['abstract'],
+                                            data['extracted'], data['position'])
+            else:
+                yield self.text_to_instance(data['article'], data['abstract'])
 
-    def text_to_instance(self, article, abstract, extracted, position):
+    def text_to_instance(self, article, abstract, extracted=None, position=None):
         if self._mode == 'e':
             article_field = self.process_article(article)
             position_field = self.process_position(position, article_field)
