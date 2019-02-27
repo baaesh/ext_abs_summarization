@@ -59,6 +59,9 @@ class LSTMEncoder(nn.Module):
         lstm_out, lstm_states = self.lstm(lstm_in)
         lstm_out, _ = unpack(lstm_out, batch_first=True)
 
+        if self.bidirectional:
+            lstm_states = self.cat_bidirectional_states(lstm_states)
+
         _, reverse_indices = torch.sort(indices, 0)
         lstm_out = self.reorder_sequence(lstm_out, reverse_indices)
         h_n, c_n = self.reorder_lstm_states(lstm_states, reverse_indices)
@@ -68,6 +71,10 @@ class LSTMEncoder(nn.Module):
     def reorder_sequence(self, x, reorder_idx):
         return x[reorder_idx]
 
-    def reorder_lstm_states(self, x, reorder_idx):
-        return (x[0].index_select(index=reorder_idx, dim=1),
-                x[1].index_select(index=reorder_idx, dim=1))
+    def reorder_lstm_states(self, states, reorder_idx):
+        return (states[0].index_select(index=reorder_idx, dim=1),
+                states[1].index_select(index=reorder_idx, dim=1))
+
+    def cat_bidirectional_states(self, states):
+        return (torch.cat(states[0].chunk(2, dim=0), dim=2),
+                torch.cat(states[1].chunk(2, dim=1), dim=2))
