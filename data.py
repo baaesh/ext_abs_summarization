@@ -36,7 +36,7 @@ class CnnDm():
         if os.path.isdir(opt['vocab_dir']) and os.listdir(opt['vocab_dir']):
             print("Loading Vocabulary")
             train_reader.set_total_instances(opt['train_path'])
-            valid_reader.set_total_instances(opt['valid_data'])
+            valid_reader.set_total_instances(opt['valid_path'])
             vocab = Vocabulary.from_files(opt['vocab_dir'])
             print("Finished")
         else:
@@ -46,12 +46,12 @@ class CnnDm():
             print("Finished")
 
         # Iterator
-        self.train_iterator = BucketIterator(sorting_keys=[("article", "num_tokens")],
+        self.train_iterator = BucketIterator(sorting_keys=[("article", "num_fields")],
                                              batch_size=opt['batch_size'],
                                              track_epoch=True,
                                              max_instances_in_memory=math.ceil(
                                                  train_reader.total_instances * opt['lazy_ratio']))
-        self.valid_iterator = BucketIterator(sorting_keys=[("article", "num_tokens")],
+        self.valid_iterator = BucketIterator(sorting_keys=[("article", "num_fields")],
                                              batch_size=opt['batch_size'],
                                              track_epoch=True)
         self.train_iterator.vocab = vocab
@@ -77,6 +77,10 @@ class CnnDmReader(DatasetReader):
         self._type = type   # train, valid, test
         if type == 'test':
             assert mode == 'r'
+
+    def set_total_instances(self, dir_path):
+        file_path_list = glob.glob(dir_path + '/*.json')
+        self.total_instances = len(file_path_list)
 
     def _read(self, dir_path):
         file_path_list = glob.glob(dir_path + '/*.json')
