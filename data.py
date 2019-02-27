@@ -38,20 +38,22 @@ class CnnDm():
             train_reader.set_total_instances(opt['train_path'])
             valid_reader.set_total_instances(opt['valid_data'])
             vocab = Vocabulary.from_files(opt['vocab_dir'])
+            print("Finished")
         else:
             print("Building Vocabulary")
             vocab = Vocabulary.from_instances(self.train_instances)
             vocab.save_to_files(opt['vocab_dir'])
+            print("Finished")
 
         # Iterator
         self.train_iterator = BucketIterator(sorting_keys=[("article", "num_tokens")],
-                                        batch_size=opt['batch_size'],
-                                        track_epoch=True,
-                                        max_instances_in_memory=math.ceil(
-                                            train_reader.total_instances * opt['lazy_ratio']))
+                                             batch_size=opt['batch_size'],
+                                             track_epoch=True,
+                                             max_instances_in_memory=math.ceil(
+                                                 train_reader.total_instances * opt['lazy_ratio']))
         self.valid_iterator = BucketIterator(sorting_keys=[("article", "num_tokens")],
-                                        batch_size=opt['batch_size'],
-                                        track_epoch=True)
+                                             batch_size=opt['batch_size'],
+                                             track_epoch=True)
         self.train_iterator.vocab = vocab
         self.valid_iterator.vocab = vocab
 
@@ -84,11 +86,14 @@ class CnnDmReader(DatasetReader):
         for example_num, file_path in enumerate(file_path_list):
             with open(file_path, 'r', encoding="utf-8") as file:
                 data = json.loads(file.read())
-            if type != 'test':
-                yield self.text_to_instance(data['article'], data['abstract'],
-                                            data['extracted'], data['position'])
+            if len(data['article']) <= 0 or len(data['abstract']) <= 0:    # emtpy file
+                pass
             else:
-                yield self.text_to_instance(data['article'], data['abstract'])
+                if type != 'test':      # test data doesn't have extracted sentences.
+                    yield self.text_to_instance(data['article'], data['abstract'],
+                                                data['extracted'], data['position'])
+                else:
+                    yield self.text_to_instance(data['article'], data['abstract'])
 
     def text_to_instance(self, article, abstract, extracted=None, position=None):
         if self._mode == 'e':
