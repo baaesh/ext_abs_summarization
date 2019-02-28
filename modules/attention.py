@@ -2,28 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-
-# Masked softmax
-def masked_softmax(vec, mask, dim=1):
-    masked_vec = vec * mask.float()
-    max_vec = torch.max(masked_vec, dim=dim, keepdim=True)[0]
-    exps = torch.exp(masked_vec - max_vec)
-    masked_exps = exps * mask.float()
-    masked_sums = masked_exps.sum(dim, keepdim=True)
-    zeros = (masked_sums == 0)
-    masked_sums += zeros.float()
-    return masked_exps / (masked_sums + 1e-20)
-
-
-# Representation mask for sentences of variable lengths
-def get_rep_mask_tile(rep_mask):
-    batch_size, sentence_len, _ = rep_mask.size()
-
-    m1 = rep_mask.view(batch_size, sentence_len, 1)
-    m2 = rep_mask.view(batch_size, 1, sentence_len)
-    mask = torch.mul(m1, m2)
-
-    return mask
+from utils import masked_softmax, get_rep_mask_tile
 
 
 class DotProductAttention(nn.Module):
