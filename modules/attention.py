@@ -66,6 +66,8 @@ class BilinearAttention(nn.Module):
         self.W = nn.Linear(self.q_dim, self.k_dim)
         self.attn = DotProductAttention()
 
-    def forward(self, q, k, v, rep_mask):
+    def forward(self, q, k, v=None, rep_mask=None):
+        if v is None:
+            v = k
         q_proj = self.W(q)
         return self.attn(q_proj, k, v, rep_mask)

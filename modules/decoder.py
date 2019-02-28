@@ -1,5 +1,7 @@
+import torch
 import torch.nn as nn
 
+from attention import BilinearAttention
 
 class LSTMDecoder(nn.Module):
 
@@ -15,5 +17,26 @@ class LSTMDecoder(nn.Module):
                             num_layers=self.num_layers,
                             batch_first=True)
 
-    def forward(self, input, encoder_outs, init_states):
-        lstm_out, lstm_states = self.lstm(input, init_states)
+        self.attn = BilinearAttention(opt)
+
+        self.projection = nn.Sequential(
+            nn.Linear(2 * self.hidden_size, self.hidden_size),
+            nn.Tanh(),
+            nn.Linear(self.hidden_size, opt['word_dim'], bias=False)
+        )
+
+    def forward(self, input, prev_out, prev_hidden, encoder_outs, source_rep_mask=None):
+        # input: batch_size x 1 x word_dim
+        # prev_out: batch_size x 1 x word_dim
+        # last_hidden: num_layers x batch size x hidden_dim
+        # encoder_outs: batch_size x seq_len x hidden_dim
+        lstm_in = torch.cat([input, prev_out], dim=2)
+        lstm_out, hidden = self.lstm(lstm_in, prev_hidden)
+
+        # lstm_out: batch_size x 1 x hidden_dim
+        # context: batch_size x 1 x hidden_dim
+        context = self.attn(lstm_out, encoder_outs, encoder_outs, source_rep_mask)
+
+        out = self.projection(torch.cat([lstm_out, context], dim=2))
+
+        return out, hidden
