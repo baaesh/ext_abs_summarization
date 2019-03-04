@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from utils import masked_softmax, get_rep_mask_tile
+from mask import masked_softmax, get_rep_mask_tile
 
 
 class DotProductAttention(nn.Module):
