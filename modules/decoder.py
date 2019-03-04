@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from attention import BilinearAttention
 
+
 class AttnLSTMDecoder(nn.Module):
 
     def __init__(self, opt, input_size=None, hidden_size=None, num_layers=None):

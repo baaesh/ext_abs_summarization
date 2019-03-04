@@ -5,6 +5,7 @@ from encoder import LSTMEncoder
 from decoder import AttnLSTMDecoder
 from utils import get_rep_mask
 
+
 class Seq2SeqAttn(nn.Module):
 
     def __init__(self, opt, vectors=None):
@@ -28,11 +29,7 @@ class Seq2SeqAttn(nn.Module):
         self.enc2dec_h = nn.Linear(self.enc_out_dim, opt['lstm_hidden_units'])
         self.enc2dec_c = nn.Linear(self.enc_out_dim, opt['lstm_hidden_units'])
 
-
-
     def forward(self, source, source_lens, target=None, target_lens=None):
-
-        source_rep_mask = get_rep_mask(source_lens)
         w_s = self.word_embedding(source)
         enc_outs, enc_states = self.encoder(w_s, source_lens)
 
@@ -41,3 +38,27 @@ class Seq2SeqAttn(nn.Module):
                              for h in enc_states[0]], dim=0)
         dec_c = torch.stack([self.enc2dec_c(c)
                              for c in enc_states[1]], dim=0)
+        source_rep_mask = get_rep_mask(source_lens)
+
+        if target is not None:
+            logits = self.train_forward(enc_outs, (dec_h, dec_c), target, source_rep_mask)
+            return logits
+        else:
+            self.predict_step(enc_outs, (dec_h, dec_c))
+
+    def train_forward(self, enc_outs, dec_hiddens, target, source_rep_mask=None):
+        max_len = target.size(1)
+        logits = []
+        prev_out = None
+        for i in range(max_len):
+            input = target[:, i:i+1]
+            dec_out, dec_hiddens = self.decoder(input, prev_out, dec_hiddens, enc_outs, source_rep_mask)
+            logit = torch.mm(dec_out, self.word_embedding.weight.t())
+            logits.append(logit)
+            prev_out = dec_out
+        logits = torch.stack(logits, dim=1)
+        return logits
+
+    def predict_step(self, enc_outs, dec_hiddens):
+        # TODO
+        pass
