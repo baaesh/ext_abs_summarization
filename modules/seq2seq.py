@@ -8,9 +8,10 @@ from utils import sequence_mean
 
 class Seq2SeqAttn(nn.Module):
 
-    def __init__(self, opt, vectors=None):
+    def __init__(self, opt, bos_id, vectors=None):
         super(Seq2SeqAttn, self).__init__()
         self.opt = opt
+        self.bos_id = bos_id
 
         self.word_embedding = nn.Embedding(opt['vocab_size'], opt['word_dim'])
         if vectors is not None:
@@ -49,27 +50,39 @@ class Seq2SeqAttn(nn.Module):
         init_dec_out = self.projection(torch.cat(
             [dec_h[-1], sequence_mean(enc_outs, source_lens, dim=1)], dim=1))
 
+        # Training phase
         if target is not None:
             logits = self.train_forward(enc_outs, (dec_h, dec_c), init_dec_out, target, source_rep_mask)
             return logits
+        # Prediction phase
         else:
-            # TODO
-            self.predict_step(enc_outs, (dec_h, dec_c))
+            preds = self.predict_forward(enc_outs, (dec_h, dec_c), init_dec_out, source_rep_mask)
+            return preds
 
-    def train_forward(self, enc_outs, dec_state, init_dec_out, target, source_rep_mask=None):
+    def decode_step(self, input, dec_out, dec_state, enc_outs, source_rep_mask=None):
+        lstm_out, context, dec_state = self.decoder(input, dec_out, dec_state, enc_outs, source_rep_mask)
+        dec_out = self.dec_out_proj(torch.cat([lstm_out, context], dim=2))
+        logit = torch.mm(dec_out, self.word_embedding.weight.t())
+        return logit
+
+    def train_forward(self, enc_outs, dec_state, dec_out, target, source_rep_mask=None):
         max_len = target.size(1)
         logits = []
-        prev_out = init_dec_out
         for i in range(max_len):
             input = target[:, i:i+1]
-            lstm_out, context, dec_state = self.decoder(input, prev_out, dec_state, enc_outs, source_rep_mask)
-            dec_out = self.dec_out_proj(torch.cat([lstm_out, context], dim=2))
-            logit = torch.mm(dec_out, self.word_embedding.weight.t())
+            logit = self.decode_step(input, dec_out, dec_state, enc_outs, source_rep_mask)
             logits.append(logit)
-            prev_out = dec_out
         logits = torch.stack(logits, dim=1)
         return logits
 
-    def predict_step(self, enc_outs, dec_state):
-        # TODO
-        pass
+    def predict_forward(self, enc_outs, dec_state, dec_out, source_rep_mask=None):
+        batch_size = enc_outs.size(0)
+        preds = []
+        pred = torch.tensor([self.bos_id] * batch_size).unsqueeze(-1).to(enc_outs.device)
+        for i in range(self.opt['max_len']):
+            input = self.word_embedding(pred)
+            logit = self.decode_step(input, dec_out, dec_state, enc_outs, source_rep_mask)
+            pred = torch.argmax(logit, dim=2)
+            preds.append(pred)
+        preds = torch.stack(preds, dim=1)
+        return preds

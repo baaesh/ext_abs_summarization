@@ -24,11 +24,16 @@ class CnnDm():
         super(CnnDm, self).__init__()
         self.opt = opt
         wordTokenizer = WordTokenizer()
-        train_reader = CnnDmReader(tokenizer=wordTokenizer, lazy=True,
-                                   mode=opt['mode'], type='train')
-        valid_reader = CnnDmReader(tokenizer=wordTokenizer, lazy=True,
-                                   mode=opt['mode'], type='valid',
-                                   tqdm=False)
+        token_indexers = {"tokens": SingleIdTokenIndexer(start_tokens=['@@BOS@@'],
+                                                         end_tokens=['@@EOS@@'])}
+        train_reader = CnnDmReader(tokenizer=wordTokenizer,
+                                   token_indexers=token_indexers,
+                                   lazy=True, mode=opt['mode'],
+                                   type='train')
+        valid_reader = CnnDmReader(tokenizer=wordTokenizer,
+                                   token_indexers=token_indexers,
+                                   lazy=True, mode=opt['mode'],
+                                   type='valid', tqdm=False)
         self.train_instances = train_reader.read(opt['train_path'])
         self.valid_instances = valid_reader.read(opt['valid_path'])
 

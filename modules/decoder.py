@@ -20,16 +20,10 @@ class AttnLSTMDecoder(nn.Module):
 
         self.attn = BilinearAttention(opt)
 
-    def forward(self, input, prev_out, prev_hidden, encoder_outs, source_rep_mask=None):
-        # input: batch_size x 1 x word_dim
-        # prev_out: batch_size x 1 x word_dim
-        # last_hidden: num_layers x batch size x hidden_dim
-        # encoder_outs: batch_size x seq_len x hidden_dim
+    def forward(self, input, prev_out, prev_state, encoder_outs, source_rep_mask=None):
         lstm_in = torch.cat([input, prev_out], dim=2)
-        lstm_out, hidden = self.lstm(lstm_in, prev_hidden)
+        lstm_out, state = self.lstm(lstm_in, prev_state)
 
-        # lstm_out: batch_size x 1 x hidden_dim
-        # context: batch_size x 1 x hidden_dim
         context = self.attn(lstm_out, encoder_outs, encoder_outs, source_rep_mask)
 
-        return lstm_out, context, hidden
+        return lstm_out, context, state
