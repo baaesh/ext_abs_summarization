@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from attention import BilinearAttention
+from modules.attention import BilinearAttention
 
 
 class AttnLSTMDecoder(nn.Module):

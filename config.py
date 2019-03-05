@@ -12,11 +12,15 @@ def model_config(parser):
     ### common
     # word embedding
     parser.add_argument('--word_dim', type=int, default=300)
+    parser.add_argument('--fix_embedding', default=False, action='store_true')
 
     # LSTM encoder
     parser.add_argument('--lstm_hidden_units', type=int, default=256)
     parser.add_argument('--lstm_num_layers', type=int, default=1)
     parser.add_argument('--lstm_bidirection', default=False, action='store_true')
+
+    # decoder
+    parser.add_argument('--max_len', type=int, default=30)
 
     return parser
 
@@ -33,6 +37,7 @@ def train_config(parser):
     parser.add_argument('--mode', default='e',
                         help="available modes: e (extractor), a (abstracter), r (reinforcement)")
     parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--learning_rate', type=float, default=0.0001)
     return parser
 
 

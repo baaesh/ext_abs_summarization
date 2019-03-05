@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-
-from mask import masked_softmax, get_rep_mask_tile
+from allennlp.nn.util import masked_softmax
 
 
 class DotProductAttention(nn.Module):
@@ -27,12 +26,9 @@ class DotProductAttention(nn.Module):
         if rep_mask is None:
             attn = F.softmax(attn, dim=2)
         else:
-            rep_mask_tile = get_rep_mask_tile(rep_mask)
-            mask = rep_mask_tile
+            attn = masked_softmax(attn, rep_mask.unsqueeze(-1), dim=2)
 
-            attn = masked_softmax(attn, mask, dim=2)
-
-        out = torch.bmm(attn, v)
+        out = torch.bmm(attn, v).sum(dim=1, keepdim=True)
         return out
 
 
