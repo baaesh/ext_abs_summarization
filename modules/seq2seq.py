@@ -81,7 +81,6 @@ class Seq2SeqAttn(nn.Module):
             dec_in = target[:, i:i+1]
             logit, dec_out, dec_state = self.decode_step(dec_in, dec_out, dec_state, enc_outs, source_rep_mask)
             logits.append(logit)
-        logits = torch.stack(logits, dim=1)
         return logits
 
     def predict_forward(self, enc_outs, dec_state, dec_out, source_rep_mask=None):
@@ -94,5 +93,4 @@ class Seq2SeqAttn(nn.Module):
             logit, dec_out, dec_state = self.decode_step(dec_in, dec_out, dec_state, enc_outs, source_rep_mask)
             pred = torch.argmax(logit, dim=2)
             preds.append(pred)
-        preds = torch.stack(preds, dim=1)
         return preds
