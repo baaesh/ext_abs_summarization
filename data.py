@@ -100,30 +100,42 @@ class CnnDmReader(DatasetReader):
         for example_num, file_path in enumerate(file_path_list):
             with open(file_path, 'r', encoding="utf-8") as file:
                 data = json.loads(file.read())
+            # empty instance
             if len(data['article']) <= 0 or len(data['abstract']) <= 0:    # emtpy file
                 pass
             else:
                 if type != 'test':      # test data doesn't have extracted sentences.
-                    yield self.text_to_instance(data['article'], data['abstract'],
+                    instance = self.text_to_instance(data['article'], data['abstract'],
                                                 data['extracted'], data['position'])
+                    if instance is not None:
+                        yield instance
                 else:
                     yield self.text_to_instance(data['article'], data['abstract'])
 
     def text_to_instance(self, article, abstract, extracted=None, position=None):
         if self._mode == 'e':
-            article_field = self.process_article(article)
-            position_field = self.process_position(position, article_field)
+            article = self.process_article(article)
+            article_field = ListField(article)
+            position = self.process_position(position, article_field)
+            position_field = ListField(position)
             fields = {'article': article_field, 'position': position_field}
             return Instance(fields)
 
         elif self._mode == 'a':
-            extracted_field = self.process_extracted(extracted)
-            abstract_field = self.process_abstract(abstract)
+            extracted = self.process_extracted(extracted)
+            abstract = self.process_abstract(abstract)
+            # for limited gpu memory
+            if len(extracted) >= 300 or len(abstract) >= 150:
+                return
+            extracted_field = TextField(extracted, self._token_indexers)
+            abstract_field = TextField(abstract, self._token_indexers)
             fields = {'extracted': extracted_field, 'abstract': abstract_field}
             return Instance(fields)
         else:
-            article_field = self.process_article(article)
-            abstract_field = self.process_abstract(abstract)
+            article = self.process_article(article)
+            abstract = self.process_abstract(abstract)
+            article_field = ListField(article)
+            abstract_field = TextField(abstract)
             fields = {'article': article_field, 'abstract': abstract_field}
             return Instance(fields)
 
@@ -133,22 +145,22 @@ class CnnDmReader(DatasetReader):
             tokenized_art_sent = self._tokenizer.tokenize(art_sent)
             art_sent_field = TextField(tokenized_art_sent, self._token_indexers)
             tokenized_article.append(art_sent_field)
-        return ListField(tokenized_article)
+        return tokenized_article
 
     def process_position(self, position, article_field):
         pos_field_list = [IndexField(pos, article_field) for pos in position]
-        return ListField(pos_field_list)
+        return pos_field_list
 
     def process_extracted(self, extracted):
         tokenized_extracted = []
         for ext_sent in extracted:
             tokenized_ext_sent = self._tokenizer.tokenize(ext_sent)
             tokenized_extracted += tokenized_ext_sent
-        return TextField(tokenized_extracted, self._token_indexers)
+        return tokenized_extracted
 
     def process_abstract(self, abstract):
         tokenized_abstract = []
         for abs_sent in abstract:
             tokenized_abs_sent = self._tokenizer.tokenize(abs_sent)
             tokenized_abstract += tokenized_abs_sent
-        return TextField(tokenized_abstract, self._token_indexers)
+        return tokenized_abstract
