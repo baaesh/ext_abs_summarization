@@ -39,9 +39,9 @@ class Seq2SeqAttn(nn.Module):
 
     def forward(self, source, target=None):
         # Get mask and sequence lengths
-        source_rep_mask = get_text_field_mask(source)
-        source_lens = get_lengths_from_binary_sequence_mask(source_rep_mask)
-        source = source['tokens']
+        source_rep_mask = get_text_field_mask(source).to(self.opt['device'])
+        source_lens = get_lengths_from_binary_sequence_mask(source_rep_mask).to(self.opt['device'])
+        source = source['tokens'].to(self.opt['device'])
 
         w_s = self.word_embedding(source)
 
@@ -60,7 +60,7 @@ class Seq2SeqAttn(nn.Module):
         ### Decode
         # Training phase
         if target is not None:
-            target = self.word_embedding(target['tokens'])
+            target = self.word_embedding(target['tokens'].to(self.opt['device']))
             logits = self.train_forward(enc_outs, (dec_h, dec_c), init_dec_out, target, source_rep_mask)
             return logits
         # Prediction phase
@@ -71,7 +71,7 @@ class Seq2SeqAttn(nn.Module):
     def decode_step(self, dec_in, dec_out, dec_state, enc_outs, source_rep_mask=None):
         lstm_out, context, dec_state = self.decoder(dec_in, dec_out, dec_state, enc_outs, source_rep_mask)
         dec_out = self.dec_out_proj(torch.cat([lstm_out, context], dim=2))
-        logit = torch.mm(dec_out.squeeze(1), self.word_embedding.weight.t()).unsqueeze(1)
+        logit = torch.mm(dec_out.squeeze(1), self.word_embedding.weight.t())
         return logit, dec_out, dec_state
 
     def train_forward(self, enc_outs, dec_state, dec_out, target, source_rep_mask=None):

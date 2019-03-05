@@ -42,12 +42,12 @@ class CnnDm():
             print("Loading Vocabulary")
             train_reader.set_total_instances(opt['train_path'])
             valid_reader.set_total_instances(opt['valid_path'])
-            vocab = Vocabulary.from_files(opt['vocab_dir'])
+            self.vocab = Vocabulary.from_files(opt['vocab_dir'])
             print("Finished")
         else:
             print("Building Vocabulary")
-            vocab = Vocabulary.from_instances(self.train_instances)
-            vocab.save_to_files(opt['vocab_dir'])
+            self.vocab = Vocabulary.from_instances(self.train_instances)
+            self.vocab.save_to_files(opt['vocab_dir'])
             print("Finished")
 
         # Iterator
@@ -64,8 +64,8 @@ class CnnDm():
         self.valid_iterator = BucketIterator(sorting_keys=sorting_keys,
                                              batch_size=opt['batch_size'],
                                              track_epoch=True)
-        self.train_iterator.vocab = vocab
-        self.valid_iterator.vocab = vocab
+        self.train_iterator.vocab = self.vocab
+        self.valid_iterator.vocab = self.vocab
 
 
 @DatasetReader.register("cnn-dailymail")

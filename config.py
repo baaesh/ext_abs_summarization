@@ -38,6 +38,7 @@ def train_config(parser):
                         help="available modes: e (extractor), a (abstracter), r (reinforcement)")
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--learning_rate', type=float, default=0.0001)
+    parser.add_argument('--device', default='cuda:0')
     return parser
 
 
