@@ -31,8 +31,8 @@ class CnnDmDataset(Dataset):
             return torch.tensor(seq)
 
         d = {'id': [],
-             'extracted': [],
-             'abstract': [],
+             'extracted': {'words': [], 'words_extended': [], 'length': []},
+             'abstract': {'words': [], 'words_extended': [], 'length': []},
              'oov_tokens': []}
 
         for ex in batch:
@@ -43,6 +43,7 @@ class CnnDmDataset(Dataset):
             oov_idx = self._vocab.__len__()
             oov_tokens = {}
             extracted = []
+            extracted_extended = []     # extended for pointer generator
             for ext_sent in ex['extracted']:
                 tokens = ext_sent.split()
                 for token in tokens:
@@ -51,27 +52,41 @@ class CnnDmDataset(Dataset):
                         if token not in oov_tokens:
                             oov_tokens[token] = oov_idx
                             oov_idx += 1
-                        idx = oov_tokens[token]
+                        extracted_extended.append(oov_tokens[token])
+                    else:
+                        extracted_extended.append(idx)
                     extracted.append(idx)
-            d['extracted'].append(to_tensor(extracted))
+            assert len(extracted) == len(extracted_extended)
+            d['extracted']['words'].append(to_tensor(extracted))
+            d['extracted']['words_extended'].append(to_tensor(extracted_extended))
+            d['extracted']['length'].append(len(extracted))
             d['oov_tokens'].append(oov_tokens)
 
             # Abstract
             abstract = [self._vocab.bos_id]
+            abstract_extended = [self._vocab.bos_id]    # extended for pointer generator
             for abs_sent in ex['abstract']:
                 tokens = abs_sent.split()
                 for token in tokens:
                     idx = self._vocab.stoi(token)
                     if not self._vocab.has_word(token)\
                             and token in oov_tokens:
-                        idx = oov_tokens[token]
+                        abstract_extended.append(oov_tokens[token])
+                    else:
+                        abstract_extended.append(idx)
                     abstract.append(idx)
             abstract.append(self._vocab.eos_id)
-            d['abstract'].append(to_tensor(abstract))
+            abstract_extended.append(self._vocab.eos_id)
+            assert len(abstract) == len(abstract_extended)
+            d['abstract']['words'].append(to_tensor(abstract))
+            d['abstract']['words_extended'].append(to_tensor(abstract_extended))
+            d['abstract']['length'].append(len(abstract))
 
-        d['extracted'] = pad_sequence(
-            d['extracted'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['abstract'] = pad_sequence(
-            d['abstract'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['extracted']['words'] = pad_sequence(
+            d['extracted']['words'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['extracted']['length'] = to_tensor(d['extracted']['length'])
+        d['abstract']['words'] = pad_sequence(
+            d['abstract']['words'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['abstract']['length'] = to_tensor(d['abstract']['length'])
 
         return d

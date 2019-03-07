@@ -1,5 +1,3 @@
-# codes from Jihun Choi
-# https://github.com/jihunchoi
 class Vocab(object):
 
     def __init__(self, unk_token='<unk>', pad_token='<pad>',
