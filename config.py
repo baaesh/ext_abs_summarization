@@ -28,7 +28,7 @@ def model_config(parser):
 def data_config(parser):
     parser.add_argument('--train_path', default='data/cnn-dailymail/train')
     parser.add_argument('--valid_path', default='data/cnn-dailymail/valid')
-    parser.add_argument('--vocab_dir', default='data/cnn-dailymail/vocab')
+    parser.add_argument('--vocab_path', default='data/cnn-dailymail/vocab/tokens.txt')
     parser.add_argument('--lazy_ratio', type=float, default=0.1)
     return parser
 
@@ -36,9 +36,10 @@ def data_config(parser):
 def train_config(parser):
     parser.add_argument('--mode', default='e',
                         help="available modes: e (extractor), a (abstracter), r (reinforcement)")
+    parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--learning_rate', type=float, default=0.0001)
-    parser.add_argument('--device', default='cuda:0')
+    parser.add_argument('--epochs', type=int, default=10)
     return parser
 
 
