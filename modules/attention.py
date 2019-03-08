@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from allennlp.nn.util import masked_softmax
+
+from modules.mask import masked_softmax
 
 
 class DotProductAttention(nn.Module):

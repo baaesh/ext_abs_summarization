@@ -52,6 +52,7 @@ class Seq2Seq(nn.Module):
         ### Decode
         # Training phase
         if target is not None:
+            target = self.word_embedding(target)
             dec_outs = self.decoder(enc_outs, (dec_h, dec_c), source_length, source_rep_mask, target)
             logits = torch.matmul(dec_outs, self.word_embedding.weight.t())
             return logits

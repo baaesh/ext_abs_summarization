@@ -38,7 +38,7 @@ class AttnLSTMDecoder(nn.Module):
             input = target[:, i:i + 1]
             output, state = self._step(input, output, state, enc_outs, source_rep_mask)
             outputs.append(output)
-        return torch.stack(outputs, dim=1)
+        return torch.cat(outputs, dim=1)
 
     def _step(self, input, prev_out, prev_state, encoder_outs, source_rep_mask=None):
         lstm_in = torch.cat([input, prev_out], dim=2)
