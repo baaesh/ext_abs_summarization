@@ -36,11 +36,8 @@ class CnnDmDataset(Dataset):
              'oov_tokens': []}
 
         for ex in batch:
-            # ID
-            d['id'].append(ex['id'])
-
             # Extracted
-            oov_idx = self._vocab.__len__()
+            oov_idx = len(self._vocab)
             oov_tokens = {}
             extracted = []
             extracted_extended = []     # extended for pointer generator
@@ -57,10 +54,6 @@ class CnnDmDataset(Dataset):
                         extracted_extended.append(idx)
                     extracted.append(idx)
             assert len(extracted) == len(extracted_extended)
-            d['extracted']['words'].append(to_tensor(extracted))
-            d['extracted']['words_extended'].append(to_tensor(extracted_extended))
-            d['extracted']['length'].append(len(extracted))
-            d['oov_tokens'].append(oov_tokens)
 
             # Abstract
             abstract = [self._vocab.bos_id]
@@ -78,15 +71,30 @@ class CnnDmDataset(Dataset):
             abstract.append(self._vocab.eos_id)
             abstract_extended.append(self._vocab.eos_id)
             assert len(abstract) == len(abstract_extended)
+
+            if len(extracted) >= 230 or len(abstract) >= 130:
+                continue
+            if len(extracted) == 0 or len(abstract) == 0:
+                continue
+
+            d['id'].append(ex['id'])
+            d['extracted']['words'].append(to_tensor(extracted))
+            d['extracted']['words_extended'].append(to_tensor(extracted_extended))
+            d['extracted']['length'].append(len(extracted))
+            d['oov_tokens'].append(oov_tokens)
             d['abstract']['words'].append(to_tensor(abstract))
             d['abstract']['words_extended'].append(to_tensor(abstract_extended))
             d['abstract']['length'].append(len(abstract))
 
         d['extracted']['words'] = pad_sequence(
             d['extracted']['words'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['extracted']['words_extended'] = pad_sequence(
+            d['extracted']['words_extended'], batch_first=True, padding_value=self._vocab.pad_id)
         d['extracted']['length'] = to_tensor(d['extracted']['length'])
         d['abstract']['words'] = pad_sequence(
             d['abstract']['words'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['abstract']['words_extended'] = pad_sequence(
+            d['abstract']['words_extended'], batch_first=True, padding_value=self._vocab.pad_id)
         d['abstract']['length'] = to_tensor(d['abstract']['length'])
 
         return d
