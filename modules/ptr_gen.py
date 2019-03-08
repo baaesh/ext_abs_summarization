@@ -7,10 +7,10 @@ from modules.utils import sequence_mean
 from modules.mask import get_rep_mask
 
 
-class Seq2Seq(nn.Module):
+class PointerGenerator(nn.Module):
 
     def __init__(self, opt, pad_id, bos_id, vectors=None):
-        super(Seq2Seq, self).__init__()
+        super(PointerGenerator, self).__init__()
         self.opt = opt
         self.pad_id = pad_id
         self.bos_id = bos_id
