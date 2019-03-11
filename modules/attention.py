@@ -30,7 +30,7 @@ class DotProductAttention(nn.Module):
             attn = masked_softmax(attn, rep_mask.unsqueeze(-1), dim=2)
 
         out = torch.bmm(attn, v).sum(dim=1, keepdim=True)
-        return out
+        return out, attn
 
 
 class BilinearAttention(nn.Module):

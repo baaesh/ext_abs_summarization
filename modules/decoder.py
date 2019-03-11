@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.functional as F
 
 from modules.attention import BilinearAttention
 from modules.utils import sequence_mean
@@ -44,8 +45,46 @@ class AttnLSTMDecoder(nn.Module):
         lstm_in = torch.cat([input, prev_out], dim=2)
         lstm_out, state = self.lstm(lstm_in, prev_state)
 
-        context = self.attn(lstm_out, encoder_outs, encoder_outs, source_rep_mask)
+        context, _ = self.attn(lstm_out, encoder_outs, encoder_outs, source_rep_mask)
 
         output = self.out_proj(torch.cat([lstm_out, context], dim=2))
 
         return output, state
+
+
+class PointerGeneratorDecoder(nn.Module):
+
+    def __init__(self, opt, input_size=None, hidden_size=None, num_layers=None):
+        super(PointerGeneratorDecoder, self).__init__()
+        self.opt = opt
+        self.input_size = input_size or opt['word_dim'] * 2
+        self.hidden_size = hidden_size or opt['lstm_hidden_units']
+        self.num_layers = num_layers or opt['lstm_num_layers']
+
+        self.lstm = nn.LSTM(input_size=self.input_size,
+                            hidden_size=self.hidden_size,
+                            num_layers=self.num_layers,
+                            batch_first=True)
+
+        self.attn = BilinearAttention(opt)
+
+        self.out_proj = nn.Sequential(
+            nn.Linear(2 * opt['lstm_hidden_units'], opt['lstm_hidden_units']),
+            nn.Tanh(),
+            nn.Linear(opt['lstm_hidden_units'], opt['word_dim'], bias=False))
+
+        self.p_gen_linear = nn.Linear(opt['lstm_hidden_dim'] * 2 + opt['word_dim'], 1)
+
+    def forward(self, input, prev_out, prev_state, encoder_outs, source_rep_mask=None):
+        lstm_in = torch.cat([input, prev_out], dim=2)
+        lstm_out, state = self.lstm(lstm_in, prev_state)
+
+        context, attn = self.attn(lstm_out, encoder_outs, encoder_outs, source_rep_mask)
+
+        output = self.out_proj(torch.cat([lstm_out, context], dim=2))
+
+        p_gen_input = torch.cat((context, lstm_out, input), 1)
+        p_gen = self.p_gen_linear(p_gen_input)
+        p_gen = F.sigmoid(p_gen)
+
+        return output, state, p_gen, attn
