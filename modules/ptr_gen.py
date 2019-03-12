@@ -108,11 +108,11 @@ class PointerGenerator(nn.Module):
                 dec_out = self.out_proj(dec_out)
                 logit = torch.matmul(dec_out, self.word_embedding.weight.t())
 
-                vocab_dist = p_gen * F.softmax(logit, dim=1)
-                point_dist = (1 - p_gen) * point_dist
+                vocab_dist = p_gen * F.softmax(logit, dim=2).squeeze(1)
+                point_dist = (1 - p_gen) * point_dist.squeeze(1)
 
-                vocab_dist = torch.cat([vocab_dist, extra_zeros], 1)
-                final_dist = vocab_dist.scatter_add(1, source_extended, point_dist)
+                vocab_dist = torch.cat([vocab_dist, extra_zeros], dim=1)
+                final_dist = vocab_dist.scatter_add(1, source_extended, point_dist) + 1e-20
                 pred = torch.argmax(final_dist, dim=-1)
                 preds.append(pred)
             return pred
