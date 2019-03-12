@@ -68,7 +68,7 @@ class PointerGenerator(nn.Module):
                 [dec_h[-1], sequence_mean(enc_outs, source_length, dim=1)], dim=1)).unsqueeze(1)
             dec_state = (dec_h, dec_c)
 
-            dists = []
+            logits = []
             max_len = w_t.size(1)
             for i in range(max_len):
                 dec_in = w_t[:, i:i+1]
@@ -85,9 +85,9 @@ class PointerGenerator(nn.Module):
                 point_dist = (1 - p_gen) * point_dist.squeeze(1)
 
                 vocab_dist = torch.cat([vocab_dist, extra_zeros], dim=1)
-                final_dist = vocab_dist.scatter_add(1, source_extended, point_dist)
-                dists.append(final_dist.log())
-            return dists
+                final_dist = vocab_dist.scatter_add(1, source_extended, point_dist) + 1e-20
+                logits.append(final_dist.log())
+            return logits
         # Prediction phase
         else:
             pred = torch.tensor([self.bos_id] * batch_size).unsqueeze(-1).to(enc_outs.device)
