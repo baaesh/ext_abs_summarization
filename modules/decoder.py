@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 
 from modules.attention import BilinearAttention
 from modules.utils import sequence_mean
@@ -68,12 +68,7 @@ class PointerGeneratorDecoder(nn.Module):
 
         self.attn = BilinearAttention(opt)
 
-        self.out_proj = nn.Sequential(
-            nn.Linear(2 * opt['lstm_hidden_units'], opt['lstm_hidden_units']),
-            nn.Tanh(),
-            nn.Linear(opt['lstm_hidden_units'], opt['word_dim'], bias=False))
-
-        self.p_gen_linear = nn.Linear(opt['lstm_hidden_dim'] * 2 + opt['word_dim'], 1)
+        self.p_gen_linear = nn.Linear(opt['lstm_hidden_units'] * 2 + opt['word_dim'], 1)
 
     def forward(self, input, prev_out, prev_state, encoder_outs, source_rep_mask=None):
         lstm_in = torch.cat([input, prev_out], dim=2)
@@ -81,10 +76,10 @@ class PointerGeneratorDecoder(nn.Module):
 
         context, attn = self.attn(lstm_out, encoder_outs, encoder_outs, source_rep_mask)
 
-        output = self.out_proj(torch.cat([lstm_out, context], dim=2))
+        out = torch.cat([lstm_out, context], dim=2)
 
-        p_gen_input = torch.cat((context, lstm_out, input), 1)
+        p_gen_input = torch.cat((context, lstm_out, input), dim=2)
         p_gen = self.p_gen_linear(p_gen_input)
-        p_gen = F.sigmoid(p_gen)
+        p_gen = torch.sigmoid(p_gen).squeeze(1)
 
-        return output, state, p_gen, attn
+        return out, state, p_gen, attn

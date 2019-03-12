@@ -21,15 +21,16 @@ class DotProductAttention(nn.Module):
 
                 Returns:
                     out: (batch_size, length1, dim)
+                    attn: (batch_size, length1, length2)
         """
         attn = torch.bmm(q, k.transpose(1, 2))
-
+        rep_mask_ = rep_mask.unsqueeze(1)
         if rep_mask is None:
             attn = F.softmax(attn, dim=2)
         else:
-            attn = masked_softmax(attn, rep_mask.unsqueeze(-1), dim=2)
+            attn = masked_softmax(attn, rep_mask_, dim=2)
 
-        out = torch.bmm(attn, v).sum(dim=1, keepdim=True)
+        out = torch.bmm(attn, v)
         return out, attn
 
 
