@@ -72,7 +72,7 @@ class CnnDmDataset(Dataset):
             abstract_extended.append(self._vocab.eos_id)
             assert len(abstract) == len(abstract_extended)
 
-            if len(extracted) >= 230 or len(abstract) >= 130:
+            if len(extracted) >= 220 or len(abstract) >= 125:
                 continue
             if len(extracted) == 0 or len(abstract) == 0:
                 continue
