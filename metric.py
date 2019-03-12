@@ -1,5 +1,3 @@
-
-
 def _lcs_len(a, b):
     dp = [[0] * (len(b) + 1)] * (len(a) + 1)
     for i in range(len(a)):
