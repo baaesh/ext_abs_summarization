@@ -3,8 +3,7 @@ from torch import nn, optim
 
 from config import set_args
 from data import CnnDm
-from modules.seq2seq import Seq2Seq
-from modules.ptr_gen import PointerGenerator
+from modules.abstractor import Seq2Seq, PointerGenerator
 
 
 def load_pth(path):
@@ -42,7 +41,7 @@ def train(opt, data):
         for step, batch in enumerate(data.train_loader):
             model.train()
             batch = to_device(batch, device=device)
-            probs = model(batch['extracted']['words'],
+            logits = model(batch['extracted']['words'],
                           batch['extracted']['words_extended'],
                           batch['extracted']['length'],
                           batch['abstract']['words'],
@@ -51,8 +50,8 @@ def train(opt, data):
             targets = batch['abstract']['words']
 
             batch_loss = 0
-            for i in range(len(probs) - 1):
-                batch_loss += criterion(probs[i], targets[:, i+1])
+            for i in range(len(logits) - 1):
+                batch_loss += criterion(logits[i], targets[:, i+1])
             loss += batch_loss.item() / (targets.size(0) * (targets.size(1) - 1))
 
             optimizer.zero_grad()
