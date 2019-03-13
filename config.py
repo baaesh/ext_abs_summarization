@@ -42,6 +42,7 @@ def train_config(parser):
     parser.add_argument('--learning_rate', type=float, default=0.0001)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--print_every', type=int, default=100)
+    parser.add_argument('--validate_every', type=int, default=1000)
     return parser
 
 

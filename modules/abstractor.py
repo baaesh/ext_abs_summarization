@@ -80,11 +80,12 @@ class Seq2Seq(nn.Module):
 
 class PointerGenerator(nn.Module):
 
-    def __init__(self, opt, pad_id, bos_id, vectors=None, criterion=None):
+    def __init__(self, opt, pad_id, bos_id, unk_id, vectors=None, criterion=None):
         super(PointerGenerator, self).__init__()
         self.opt = opt
         self.pad_id = pad_id
         self.bos_id = bos_id
+        self.unk_id = unk_id
         self.criterion = criterion or nn.NLLLoss()
 
         self.word_embedding = nn.Embedding(opt['vocab_size'], opt['word_dim'],
@@ -168,6 +169,10 @@ class PointerGenerator(nn.Module):
             preds = []
             max_len = self.opt['max_len']
             for i in range(max_len):
+                oov_mask = (pred >= self.opt['vocab_size']).long()
+                pred = pred * (1 - oov_mask)
+                pred += oov_mask * self.unk_id
+
                 dec_in = self.word_embedding(pred)
                 dec_out, dec_state, p_gen, point_dist = \
                     self.decoder.forward(dec_in,
@@ -183,6 +188,7 @@ class PointerGenerator(nn.Module):
 
                 vocab_dist = torch.cat([vocab_dist, extra_zeros], dim=1)
                 final_dist = vocab_dist.scatter_add(1, source_extended, point_dist) + 1e-20
-                pred = torch.argmax(final_dist, dim=-1)
+                pred = torch.argmax(final_dist, dim=-1, keepdim=True)
+
                 preds.append(pred)
-            return preds
+            return torch.stack(preds, dim=1)
