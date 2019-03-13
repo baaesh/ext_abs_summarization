@@ -191,4 +191,4 @@ class PointerGenerator(nn.Module):
                 pred = torch.argmax(final_dist, dim=-1, keepdim=True)
 
                 preds.append(pred)
-            return torch.stack(preds, dim=1)
+            return torch.cat(preds, dim=1)

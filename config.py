@@ -20,7 +20,7 @@ def model_config(parser):
     parser.add_argument('--lstm_bidirection', default=False, action='store_true')
 
     # decoder
-    parser.add_argument('--max_len', type=int, default=30)
+    parser.add_argument('--max_len', type=int, default=120)
 
     return parser
 

@@ -68,14 +68,14 @@ def train(opt, data):
                 rouge2_sum = 0
                 rougeL_sum = 0
                 count = 0
-                for step, batch in enumerate(data.valid_loader):
+                for _, batch in enumerate(data.valid_loader):
                     model.eval()
                     batch = to_device(batch, device=device)
                     preds = model(batch['extracted']['words'],
                                   batch['extracted']['words_extended'],
                                   batch['extracted']['length']).cpu().numpy()
                     gold = batch['abstract']['words_extended'].cpu().numpy()
-                    for i in range(gold.size(0)):
+                    for i in range(len(gold)):
                         rouge1_sum += rouge_n(preds[i], gold[i], n=1)
                         rouge2_sum += rouge_n(preds[i], gold[i], n=2)
                         rougeL_sum += rouge_L(preds[i], gold[i])
