@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from modules.attention import BilinearAttention
 from modules.utils import sequence_mean

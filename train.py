@@ -20,6 +20,7 @@ def to_device(batch, device):
     else:
         return batch
 
+
 def strip(words_list, max_len, bos_id, eos_id):
     start_idx = 0
     if words_list[0] == bos_id:
@@ -29,6 +30,7 @@ def strip(words_list, max_len, bos_id, eos_id):
         if words_list[i] == eos_id:
             end_idx = i
     return words_list[start_idx:end_idx]
+
 
 def train(opt, data):
     print('Loading GloVe pretrained vectors')

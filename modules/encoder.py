@@ -48,4 +48,3 @@ class LSTMEncoder(nn.Module):
     def cat_bidirectional_states(self, states):
         return (torch.cat(states[0].chunk(2, dim=0), dim=2),
                 torch.cat(states[1].chunk(2, dim=1), dim=2))
-
