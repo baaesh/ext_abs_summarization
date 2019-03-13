@@ -32,8 +32,8 @@ class CnnDm():
             with open(example, 'r', encoding='utf-8') as file:
                 valid_data.append(json.load(file))
 
-        self.train_dataset = CnnDmDataset(train_data, self.vocab)
-        self.valid_dataset = CnnDmDataset(valid_data, self.vocab)
+        self.train_dataset = CnnDmDataset(opt, train_data, self.vocab, opt['mode'])
+        self.valid_dataset = CnnDmDataset(opt, valid_data, self.vocab, opt['mode'])
 
         self.train_loader = DataLoader(dataset=self.train_dataset,
                                        batch_size=opt['batch_size'],

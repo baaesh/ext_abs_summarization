@@ -31,6 +31,7 @@ def data_config(parser):
     parser.add_argument('--vocab_path', default='data/cnn-dailymail/vocab/tokens.txt')
     parser.add_argument('--glove_path', default='data/glove/glove.pth')
     parser.add_argument('--lazy_ratio', type=float, default=0.1)
+    parser.add_argument('--art_max_len', type=int, default=100)
     return parser
 
 

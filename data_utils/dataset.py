@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 class CnnDmDataset(Dataset):
 
-    def __init__(self, data, vocab, mode='a'):
+    def __init__(self, opt, data, vocab, mode='a'):
         """A `torch.utils.data.Dataset` object for CNN/Daily Mail data.
 
         Args:
@@ -15,6 +15,7 @@ class CnnDmDataset(Dataset):
             vocab (utils.vocab.Vocab): Vocab objects loaded from
                 the vocab file.
         """
+        self.opt = opt
         self._data = data
         self._vocab = vocab
         self._mode = mode
@@ -26,6 +27,54 @@ class CnnDmDataset(Dataset):
         return len(self._data)
 
     def collate(self, batch):
+        if self._mode == 'e':
+            return self.ext_collate(batch)
+        elif self._mode == 'a':
+            return self.abs_collate(batch)
+        else:
+            return self.rein_collate(batch)
+
+    def ext_collate(self, batch):
+
+        def to_tensor(seq):
+            return torch.tensor(seq)
+
+        d = {'id': [],
+             'article': {'sentences': [], 'length': []},
+             'target': {'positions': [], 'length': []}}
+
+        for ex in batch:
+            # Article
+            article_sents = []
+            for art_sent in ex['article']:
+                tokens = art_sent.split()
+                token_ids = [self._vocab.stoi(token) for token in tokens]
+
+                # Cut too long sentences
+                if len(token_ids) > self.opt['art_max_len']:
+                    token_ids = token_ids[:self.opt['art_max_len']]
+                # Padding
+                while (len(token_ids) < self.opt['art_max_len']):
+                    token_ids += [self._vocab.pad_id]
+                article_sents.append([self._vocab.pad_id] + token_ids)
+
+            d['id'].append(ex['id'])
+            d['article']['sentences'].append(to_tensor(article_sents))
+            d['article']['length'].append(len(article_sents))
+            # position index starts from 1
+            d['target']['positions'].append(to_tensor(ex['position']) + 1)
+            d['target']['length'].append(len(ex['position']))
+
+        d['article']['sentences'] = pad_sequence(
+            d['article']['sentences'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['article']['length'] = to_tensor(d['article']['length'])
+        d['target']['positions'] = pad_sequence(
+            d['target']['positions'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['target']['length'] = to_tensor(d['target']['length'])
+
+        return d
+
+    def abs_collate(self, batch):
 
         def to_tensor(seq):
             return torch.tensor(seq)
@@ -98,3 +147,6 @@ class CnnDmDataset(Dataset):
         d['abstract']['length'] = to_tensor(d['abstract']['length'])
 
         return d
+
+    def rein_collate(self, batch):
+        return
