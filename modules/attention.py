@@ -83,6 +83,6 @@ class AdditiveAttention(nn.Module):
             # attn: batch_size x num_target x sequence_length
             # k_proj: batch_size x sequence_length x hidden_unis
             # out: batch_size x num_target x hidden_units
-            out = torch.bmm(attn, k_proj)
+            out = torch.bmm(attn, k_proj.squeeze(1))
 
         return out, attn

@@ -40,7 +40,7 @@ def train_config(parser):
                         help="available modes: e (extractor), a (abstracter), r (reinforcement)")
     parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--learning_rate', type=float, default=0.0001)
+    parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--print_every', type=int, default=100)
     parser.add_argument('--validate_every', type=int, default=1000)

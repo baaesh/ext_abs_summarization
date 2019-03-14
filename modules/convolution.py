@@ -17,7 +17,7 @@ class ConvSentenceEncoder(nn.Module):
             setattr(self, 'conv_' + str(filter_size), conv)
 
     def forward(self, x):
-        # batch size x text len x sentence len x word dim
+        # batch size x num_sentence x num_word x word dim
         batch_size, text_len, sentence_len, word_dim = x.size()
         conv_in = x.view(batch_size * text_len, 1, -1)
 
@@ -27,5 +27,6 @@ class ConvSentenceEncoder(nn.Module):
             relu_out = F.relu(conv_out)
             pool_out = F.max_pool1d(relu_out, sentence_len - filter_size + 1)
             out.append(pool_out.view(batch_size, text_len, self.opt['num_feature_maps']))
+        # batch_size x num_sentence x (num_filter * num_feature_maps)
         out = torch.cat(out, -1)
         return out

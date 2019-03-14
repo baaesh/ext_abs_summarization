@@ -59,9 +59,12 @@ class CnnDmDataset(Dataset):
                     token_ids += [self._vocab.pad_id]
                 article_sents.append(token_ids)
 
+            if len(article_sents) == 1 or len(ex['position']) == 0:
+                continue
+
             d['id'].append(ex['id'])
             d['article']['sentences'].append(to_tensor(article_sents))
-            d['article']['length'].append(len(article_sents) + 1)
+            d['article']['length'].append(len(article_sents))
             # position index starts from 1
             d['target']['positions'].append(to_tensor(ex['position']) + 1)
             d['target']['length'].append(len(ex['position']))

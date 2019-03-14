@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.nn import init
+from torch.nn.utils.rnn import pad_packed_sequence as unpack
+from torch.nn.utils.rnn import pack_padded_sequence as pack
 
 from modules.attention import BilinearAttention, AdditiveAttention
 from modules.mask import get_target_mask
@@ -108,26 +110,38 @@ class PointerNetworkDecoder(nn.Module):
                             num_layers=self.num_layers,
                             batch_first=True)
 
-        self.glimpse_attn = AdditiveAttention(opt)
-        self.point_attn = AdditiveAttention(opt)
+        self.glimpse_attn = AdditiveAttention(opt, k_dim=self.input_size)
+        self.point_attn = AdditiveAttention(opt, k_dim=self.input_size)
 
-        self.enc_out_proj = nn.Linear(self.input_size, self.hidden_size, bias=False)
-
-    def forward(self, enc_outs, target, source_rep_mask=None):
+    def forward(self, enc_outs, target, source_rep_mask=None, target_length=None):
         lstm_in, lstm_states, source_rep_mask, pred_mask = self._prepare(enc_outs, target, source_rep_mask)
 
+        ### LSTM
+        target_length, indices = torch.sort(target_length, 0, True)
+
+        lstm_in_sorted = self.reorder_sequence(lstm_in, indices)
+        lstm_in_packed = pack(lstm_in_sorted, target_length.tolist(), batch_first=True)
         # lstm_out: batch_size x num_target x hidden_units
-        lstm_out, _ = self.lstm(lstm_in, lstm_states)
+        lstm_out_packed, _ = self.lstm(lstm_in_packed, lstm_states)
+        lstm_out, _ = unpack(lstm_out_packed, batch_first=True)
+
+        _, reverse_indices = torch.sort(indices, 0)
+        lstm_out = self.reorder_sequence(lstm_out, reverse_indices)
+
+        ### glimpse attention
         # glimpse: batch_size x num_target x hidden_units
         glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, enc_outs, source_rep_mask)
 
+        ### point attention
         # logit: batch_size x num_target x num_sentence
         _, logit = self.point_attn(glimpse, enc_outs, rep_mask=pred_mask)
 
         return logit
 
+    def reorder_sequence(self, x, reorder_idx):
+        return x[reorder_idx]
+
     def _prepare(self, enc_outs, target, source_rep_mask=None):
-        target = target[:, :-1]
         batch_size, num_target = target.size()
         hidden_dim = enc_outs.size(2)
 

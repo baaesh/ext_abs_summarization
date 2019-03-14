@@ -52,8 +52,8 @@ def get_target_mask(target, num_sequence):
     masks = [mask]
 
     for i in range(num_target-1):
-        mask = mask.scatter_(1, target[:, i], 1)
+        mask = mask.scatter_(1, target[:, i].unsqueeze(-1), 1)
         masks.append(mask)
 
     target_mask = 1 - torch.stack(masks, dim=1)
-    return target_mask
+    return target_mask.byte()

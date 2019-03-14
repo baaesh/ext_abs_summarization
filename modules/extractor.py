@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from convolution import ConvSentenceEncoder
+from modules.convolution import ConvSentenceEncoder
 from modules.encoder import LSTMEncoder
 from modules.decoder import PointerNetworkDecoder
 from modules.mask import get_rep_mask
@@ -24,9 +24,11 @@ class PointerNetwork(nn.Module):
 
         enc_input_size = opt['num_feature_maps'] * len(opt['filter_sizes'])
         self.encoder = LSTMEncoder(opt, input_size=enc_input_size, bidirectional=True)
-        self.decoder = PointerNetworkDecoder(opt)
+        enc_out_dim = 2 * opt['lstm_hidden_units'] if opt['lstm_bidirection'] else opt['lstm_hidden_units']
+        self.decoder = PointerNetworkDecoder(opt, input_size=enc_out_dim)
 
     def forward(self, source, source_length, target=None, target_length=None):
+
         ### Get mask
         source_rep_mask = get_rep_mask(source_length)
 
@@ -44,7 +46,7 @@ class PointerNetwork(nn.Module):
         ### Decode
         # Training phase
         if target is not None:
-            return self.decoder(enc_outs, target, source_rep_mask)
+            return self.decoder(enc_outs, target, source_rep_mask, target_length)
         # Prediction phase
         # TODO: not implemented yet
         else:
