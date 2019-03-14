@@ -72,7 +72,6 @@ class AdditiveAttention(nn.Module):
         # batch_size x num_target x sequence_length
         u = self.v(torch.tanh(k_proj + q_proj)).squeeze(-1)
 
-        # TODO: rep_mask should not contain the previously selected sentences
         # attn: batch_size x num_target x sequence_length
         if rep_mask is None:
             attn = F.softmax(u, dim=2)
