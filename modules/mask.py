@@ -43,3 +43,17 @@ def masked_softmax(vec, mask, dim=1):
     zeros = (masked_sums == 0)
     masked_sums += zeros.float()
     return masked_exps / (masked_sums + 1e-20)
+
+
+def get_target_mask(target, num_sequence):
+    batch_size, num_target = target.size()
+
+    mask = torch.zeros(batch_size, num_sequence).to(target.device)
+    masks = [mask]
+
+    for i in range(num_target-1):
+        mask = mask.scatter_(1, target[:, i], 1)
+        masks.append(mask)
+
+    target_mask = 1 - torch.stack(masks, dim=1)
+    return target_mask

@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.nn import init
-import torch.nn.functional as F
 
 from modules.attention import BilinearAttention, AdditiveAttention
+from modules.mask import get_target_mask
 from modules.utils import sequence_mean
 
 
@@ -114,7 +114,7 @@ class PointerNetworkDecoder(nn.Module):
         self.enc_out_proj = nn.Linear(self.input_size, self.hidden_size, bias=False)
 
     def forward(self, enc_outs, target, source_rep_mask=None):
-        lstm_in, lstm_states = self._prepare(enc_outs, target)
+        lstm_in, lstm_states, source_rep_mask, pred_mask = self._prepare(enc_outs, target, source_rep_mask)
 
         # lstm_out: batch_size x num_target x hidden_units
         lstm_out, _ = self.lstm(lstm_in, lstm_states)
@@ -122,11 +122,11 @@ class PointerNetworkDecoder(nn.Module):
         glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, enc_outs, source_rep_mask)
 
         # logit: batch_size x num_target x num_sentence
-        _, logit = self.point_attn(glimpse, enc_outs, rep_mask=source_rep_mask)
+        _, logit = self.point_attn(glimpse, enc_outs, rep_mask=pred_mask)
 
         return logit
 
-    def _prepare(self, enc_outs, target):
+    def _prepare(self, enc_outs, target, source_rep_mask=None):
         target = target[:, :-1]
         batch_size, num_target = target.size()
         hidden_dim = enc_outs.size(2)
@@ -141,4 +141,11 @@ class PointerNetworkDecoder(nn.Module):
         size = (self.num_layers, batch_size, self.hidden_size)
         lstm_states = (self.init_h.unsqueeze(1).expand(*size).contiguous(),
                        self.init_c.unsqueeze(1).expand(*size).contiguous())
-        return lstm_in, lstm_states
+
+        pred_mask = None
+        if source_rep_mask is not None:
+            target_mask = get_target_mask(target, source_rep_mask.size(1))
+            source_rep_mask = source_rep_mask.unsqueeze(1).expand(batch_size, num_target, source_rep_mask.size(1))
+            pred_mask = target_mask * source_rep_mask
+
+        return lstm_in, lstm_states, source_rep_mask, pred_mask

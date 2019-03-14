@@ -77,7 +77,7 @@ class AdditiveAttention(nn.Module):
         if rep_mask is None:
             attn = F.softmax(u, dim=2)
         else:
-            attn = masked_softmax(u, rep_mask.unsqueeze(1), dim=2)
+            attn = masked_softmax(u, rep_mask, dim=2)
 
         out = None
         if v is not None:
