@@ -46,6 +46,7 @@ class CnnDmDataset(Dataset):
         for ex in batch:
             # Article
             article_sents = []
+            article_sents.append([self._vocab.pad_id] * self.opt['art_max_len'])
             for art_sent in ex['article']:
                 tokens = art_sent.split()
                 token_ids = [self._vocab.stoi(token) for token in tokens]
@@ -56,11 +57,11 @@ class CnnDmDataset(Dataset):
                 # Padding
                 while (len(token_ids) < self.opt['art_max_len']):
                     token_ids += [self._vocab.pad_id]
-                article_sents.append([self._vocab.pad_id] + token_ids)
+                article_sents.append(token_ids)
 
             d['id'].append(ex['id'])
             d['article']['sentences'].append(to_tensor(article_sents))
-            d['article']['length'].append(len(article_sents))
+            d['article']['length'].append(len(article_sents) + 1)
             # position index starts from 1
             d['target']['positions'].append(to_tensor(ex['position']) + 1)
             d['target']['length'].append(len(ex['position']))
