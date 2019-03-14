@@ -63,18 +63,27 @@ class AdditiveAttention(nn.Module):
 
         self.v = nn.Linear(self.hidden_dim, 1, bias=False)
 
-    def forward(self, q, k, rep_mask=None):
-        # batch_size x 1 x hidden_dim
-        q_proj = self.w_q(q)
-        # batch_size x sequence_length x hidden_dim
-        k_proj = self.w_k(k)
+    def forward(self, q, k, v=None, rep_mask=None):
+        # batch_size x num_target x 1 x hidden_dim
+        q_proj = self.w_q(q).unsqueeze(2)
+        # batch_size x 1 x sequence_length x hidden_dim
+        k_proj = self.w_k(k).unsqueeze(1)
 
-        # batch_size x sequence_length
+        # batch_size x num_target x sequence_length
         u = self.v(torch.tanh(k_proj + q_proj)).squeeze(-1)
 
         # TODO: rep_mask should not contain the previously selected sentences
+        # attn: batch_size x num_target x sequence_length
         if rep_mask is None:
-            attn = torch.softmax(u, dim=1)
+            attn = F.softmax(u, dim=2)
         else:
-            attn = masked_softmax(u, rep_mask, dim=1)
-        return attn
+            attn = masked_softmax(u, rep_mask.unsqueeze(1), dim=2)
+
+        out = None
+        if v is not None:
+            # attn: batch_size x num_target x sequence_length
+            # k_proj: batch_size x sequence_length x hidden_unis
+            # out: batch_size x num_target x hidden_units
+            out = torch.bmm(attn, k_proj)
+
+        return out, attn
