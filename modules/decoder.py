@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
+from torch.nn import init
+import torch.nn.functional as F
 
-from modules.attention import BilinearAttention
+from modules.attention import BilinearAttention, AdditiveAttention
 from modules.utils import sequence_mean
 
 
@@ -82,3 +84,61 @@ class PointerGeneratorDecoder(nn.Module):
         p_gen = torch.sigmoid(p_gen).squeeze(1)
 
         return out, state, p_gen, attn
+
+
+class PointerNetworkDecoder(nn.Module):
+
+    def __init__(self, opt, input_size=None, hidden_size=None, num_layers=None):
+        super(PointerNetworkDecoder, self).__init__()
+        self.opt = opt
+        self.input_size = input_size or opt['lstm_hidden_units']
+        self.hidden_size = hidden_size or opt['lstm_hidden_units']
+        self.num_layers = num_layers or opt['lstm_num_layers']
+
+        # initial input and states of lstm
+        self.init_h = nn.Parameter(torch.Tensor(self.num_layers, self.hidden_size))
+        self.init_c = nn.Parameter(torch.Tensor(self.num_layers, self.hidden_size))
+        self.init_in = nn.Parameter(torch.Tensor(self.input_size))
+        init.uniform_(self.init_h, -1e-2, 1e-2)
+        init.uniform_(self.init_c, -1e-2, 1e-2)
+        init.uniform_(self.init_in, -0.1, 0.1)
+
+        self.lstm = nn.LSTM(input_size=self.input_size,
+                            hidden_size=self.hidden_size,
+                            num_layers=self.num_layers,
+                            batch_first=True)
+
+        self.glimpse_attn = AdditiveAttention(opt)
+        self.point_attn = AdditiveAttention(opt)
+
+        self.enc_out_proj = nn.Linear(self.input_size, self.hidden_size, bias=False)
+
+    def forward(self, enc_outs, target, source_rep_mask=None):
+        lstm_in, lstm_states = self._prepare(enc_outs, target)
+
+        # lstm_out: batch_size x num_target x hidden_units
+        lstm_out, _ = self.lstm(lstm_in, lstm_states)
+        # glimpse: batch_size x num_target x hidden_units
+        glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, enc_outs, source_rep_mask)
+
+        # logit: batch_size x num_target x num_sentence
+        _, logit = self.point_attn(glimpse, enc_outs, rep_mask=source_rep_mask)
+
+        return logit
+
+    def _prepare(self, enc_outs, target):
+        target = target[:, :-1]
+        batch_size, num_target = target.size()
+        hidden_dim = enc_outs.size(2)
+
+        init_in = self.init_in.unsqueeze(0).unsqueeze(1).expand(batch_size, 1, hidden_dim)
+        ptr_in = torch.gather(
+            enc_outs, dim=1, index=target.unsqueeze(2).expand(batch_size, num_target, hidden_dim)
+        )
+        # lstm_in: batch_size x num_target x hidden_units
+        lstm_in = torch.cat([init_in, ptr_in], dim=1)
+
+        size = (self.num_layers, batch_size, self.hidden_size)
+        lstm_states = (self.init_h.unsqueeze(1).expand(*size).contiguous(),
+                       self.init_c.unsqueeze(1).expand(*size).contiguous())
+        return lstm_in, lstm_states
