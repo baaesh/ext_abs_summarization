@@ -40,7 +40,7 @@ class BilinearAttention(nn.Module):
         super(BilinearAttention, self).__init__()
         self.q_dim = q_dim or opt['lstm_hidden_units']
         self.k_dim = k_dim or opt['lstm_hidden_units']
-        self.W = nn.Linear(self.q_dim, self.k_dim)
+        self.W = nn.Linear(self.q_dim, self.k_dim, bias=False)
         self.attn = DotProductAttention()
 
     def forward(self, q, k, v=None, rep_mask=None):
@@ -48,3 +48,33 @@ class BilinearAttention(nn.Module):
             v = k
         q_proj = self.W(q)
         return self.attn(q_proj, k, v, rep_mask)
+
+
+class AdditiveAttention(nn.Module):
+
+    def __init__(self, opt, q_dim=None, k_dim=None, hidden_dim=None):
+        super(AdditiveAttention, self).__init__()
+        self.q_dim = q_dim or opt['lstm_hidden_units']
+        self.k_dim = k_dim or opt['lstm_hidden_units']
+        self.hidden_dim = hidden_dim or opt['lstm_hidden_units']
+
+        self.w_q = nn.Linear(self.q_dim, self.hidden_dim, bias=False)
+        self.w_k = nn.Linear(self.k_dim, self.hidden_dim, bias=False)
+
+        self.v = nn.Linear(self.hidden_dim, 1, bias=False)
+
+    def forward(self, q, k, rep_mask=None):
+        # batch_size x 1 x hidden_dim
+        q_proj = self.w_q(q)
+        # batch_size x sequence_length x hidden_dim
+        k_proj = self.w_k(k)
+
+        # batch_size x sequence_length
+        u = self.v(torch.tanh(k_proj + q_proj)).squeeze(-1)
+
+        # TODO: rep_mask should not contain the previously selected sentences
+        if rep_mask is None:
+            attn = torch.softmax(u, dim=1)
+        else:
+            attn = masked_softmax(u, rep_mask, dim=1)
+        return attn
