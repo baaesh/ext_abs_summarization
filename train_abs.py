@@ -29,6 +29,7 @@ def strip(words_list, max_len, bos_id, eos_id):
     for i in range(len(words_list)):
         if words_list[i] == eos_id:
             end_idx = i
+            break
     return words_list[start_idx:end_idx]
 
 
