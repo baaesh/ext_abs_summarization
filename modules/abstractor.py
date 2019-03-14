@@ -80,13 +80,12 @@ class Seq2Seq(nn.Module):
 
 class PointerGenerator(nn.Module):
 
-    def __init__(self, opt, pad_id, bos_id, unk_id, vectors=None, criterion=None):
+    def __init__(self, opt, pad_id, bos_id, unk_id, vectors=None):
         super(PointerGenerator, self).__init__()
         self.opt = opt
         self.pad_id = pad_id
         self.bos_id = bos_id
         self.unk_id = unk_id
-        self.criterion = criterion or nn.NLLLoss()
 
         self.word_embedding = nn.Embedding(opt['vocab_size'], opt['word_dim'],
                                            padding_idx = pad_id)
