@@ -93,7 +93,7 @@ class CnnDmDataset(Dataset):
             oov_idx = len(self._vocab)
             oov_tokens = {}
             extracted = []
-            extracted_extended = []     # extended for pointer generator
+            extracted_extended = []  # extended for pointer generator
             for ext_sent in ex['extracted']:
                 tokens = ext_sent.split()
                 for token in tokens:
@@ -110,12 +110,12 @@ class CnnDmDataset(Dataset):
 
             # Abstract
             abstract = [self._vocab.bos_id]
-            abstract_extended = [self._vocab.bos_id]    # extended for pointer generator
+            abstract_extended = [self._vocab.bos_id]  # extended for pointer generator
             for abs_sent in ex['abstract']:
                 tokens = abs_sent.split()
                 for token in tokens:
                     idx = self._vocab.stoi(token)
-                    if not self._vocab.has_word(token)\
+                    if not self._vocab.has_word(token) \
                             and token in oov_tokens:
                         abstract_extended.append(oov_tokens[token])
                     else:

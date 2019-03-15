@@ -114,7 +114,7 @@ class PointerNetworkDecoder(nn.Module):
         self.point_attn = AdditiveAttention(opt, k_dim=self.input_size)
 
     def forward(self, enc_outs, target, source_rep_mask=None, target_length=None):
-        lstm_in, lstm_states = self._prepare(enc_outs, target, source_rep_mask)
+        lstm_in, lstm_states = self._prepare(enc_outs, target)
 
         ### LSTM
         target_length, indices = torch.sort(target_length, 0, True)
@@ -141,7 +141,7 @@ class PointerNetworkDecoder(nn.Module):
     def reorder_sequence(self, x, reorder_idx):
         return x[reorder_idx]
 
-    def _prepare(self, enc_outs, target, source_rep_mask=None):
+    def _prepare(self, enc_outs, target):
         batch_size, num_target = target.size()
         hidden_dim = enc_outs.size(2)
 

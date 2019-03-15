@@ -7,6 +7,7 @@ from modules.encoder import LSTMEncoder
 from modules.decoder import PointerNetworkDecoder
 from modules.mask import get_rep_mask
 
+
 class PointerNetwork(nn.Module):
 
     def __init__(self, opt, pad_id, vectors=None):
@@ -14,7 +15,7 @@ class PointerNetwork(nn.Module):
         self.opt = opt
 
         self.word_embedding = nn.Embedding(opt['vocab_size'], opt['word_dim'],
-                                           padding_idx = pad_id)
+                                           padding_idx=pad_id)
         if vectors is not None:
             self.word_embedding.weight.data.copy_(vectors)
         if opt['fix_embedding']:

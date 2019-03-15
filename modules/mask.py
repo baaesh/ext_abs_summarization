@@ -51,7 +51,7 @@ def get_target_mask(target, num_sequence):
     mask = torch.zeros(batch_size, num_sequence).to(target.device)
     masks = [mask]
 
-    for i in range(num_target-1):
+    for i in range(num_target - 1):
         mask = mask.scatter_(1, target[:, i].unsqueeze(-1), 1)
         masks.append(mask)
 

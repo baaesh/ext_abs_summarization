@@ -36,7 +36,7 @@ def train(opt, data):
     print('Training Start!')
     for epoch in range(opt['epochs']):
         loss = 0
-        print("Epoch " + str(epoch+1))
+        print("Epoch " + str(epoch + 1))
         for step, batch in enumerate(data.train_loader):
             model.train()
             batch = to_device(batch, device=device)
@@ -57,7 +57,7 @@ def train(opt, data):
             optimizer.step()
 
             if (step + 1) % opt['print_every'] == 0:
-                print('step ' + str(step+1) + '/' + str(len(data.train_loader)) +': loss '+ str(loss))
+                print('step ' + str(step + 1) + '/' + str(len(data.train_loader)) + ': loss ' + str(loss))
                 loss = 0
 
 

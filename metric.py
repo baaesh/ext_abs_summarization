@@ -5,10 +5,10 @@ def _lcs_len(a, b):
     dp = [[0] * (len(b) + 1)] * (len(a) + 1)
     for i in range(len(a)):
         for j in range(len(b)):
-            if a[i]==b[j]:
-                dp[i+1][j+1] = dp[i][j] + 1
+            if a[i] == b[j]:
+                dp[i + 1][j + 1] = dp[i][j] + 1
             else:
-                dp[i+1][j+1] = max(dp[i][j+1], dp[i+1][j])
+                dp[i + 1][j + 1] = max(dp[i][j + 1], dp[i + 1][j])
     return dp[-1][-1]
 
 
@@ -30,7 +30,7 @@ def rouge_L(output, reference, mode='f'):
 
 
 def make_n_grams(seq, n):
-    ngrams = (tuple(seq[i:i+n]) for i in range(len(seq)-n+1))
+    ngrams = (tuple(seq[i:i + n]) for i in range(len(seq) - n + 1))
     return ngrams
 
 

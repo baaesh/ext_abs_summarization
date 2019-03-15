@@ -17,7 +17,7 @@ class Seq2Seq(nn.Module):
         self.bos_id = bos_id
 
         self.word_embedding = nn.Embedding(opt['vocab_size'], opt['word_dim'],
-                                           padding_idx = pad_id)
+                                           padding_idx=pad_id)
         if vectors is not None:
             self.word_embedding.weight.data.copy_(vectors)
         if opt['fix_embedding']:
@@ -88,7 +88,7 @@ class PointerGenerator(nn.Module):
         self.unk_id = unk_id
 
         self.word_embedding = nn.Embedding(opt['vocab_size'], opt['word_dim'],
-                                           padding_idx = pad_id)
+                                           padding_idx=pad_id)
         if vectors is not None:
             self.word_embedding.weight.data.copy_(vectors)
         if opt['fix_embedding']:
@@ -141,7 +141,7 @@ class PointerGenerator(nn.Module):
             logits = []
             max_len = w_t.size(1)
             for i in range(max_len):
-                dec_in = w_t[:, i:i+1]
+                dec_in = w_t[:, i:i + 1]
                 dec_out, dec_state, p_gen, point_dist = \
                     self.decoder.forward(dec_in,
                                          dec_out,
