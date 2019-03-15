@@ -114,7 +114,7 @@ class PointerNetworkDecoder(nn.Module):
         self.point_attn = AdditiveAttention(opt, k_dim=self.input_size)
 
     def forward(self, enc_outs, target, source_rep_mask=None, target_length=None):
-        lstm_in, lstm_states, source_rep_mask, pred_mask = self._prepare(enc_outs, target, source_rep_mask)
+        lstm_in, lstm_states = self._prepare(enc_outs, target, source_rep_mask)
 
         ### LSTM
         target_length, indices = torch.sort(target_length, 0, True)
@@ -133,10 +133,10 @@ class PointerNetworkDecoder(nn.Module):
         glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, enc_outs, source_rep_mask)
 
         ### point attention
-        # logit: batch_size x num_target x num_sentence
-        _, logit = self.point_attn(glimpse, enc_outs, rep_mask=pred_mask)
+        # probs: batch_size x num_target x num_sentence
+        _, probs = self.point_attn(glimpse, enc_outs, rep_mask=source_rep_mask)
 
-        return logit
+        return (probs + 1e-20).log()
 
     def reorder_sequence(self, x, reorder_idx):
         return x[reorder_idx]
@@ -155,11 +155,4 @@ class PointerNetworkDecoder(nn.Module):
         size = (self.num_layers, batch_size, self.hidden_size)
         lstm_states = (self.init_h.unsqueeze(1).expand(*size).contiguous(),
                        self.init_c.unsqueeze(1).expand(*size).contiguous())
-
-        pred_mask = None
-        if source_rep_mask is not None:
-            target_mask = get_target_mask(target, source_rep_mask.size(1))
-            source_rep_mask = source_rep_mask.unsqueeze(1).expand(batch_size, num_target, source_rep_mask.size(1))
-            pred_mask = target_mask * source_rep_mask
-
-        return lstm_in, lstm_states, source_rep_mask, pred_mask
+        return lstm_in, lstm_states
