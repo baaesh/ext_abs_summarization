@@ -39,10 +39,10 @@ def train(opt, data):
 
     device = torch.device(opt['device'])
     model = PointerGenerator(opt=opt,
-                    pad_id=data.vocab.pad_id,
-                    bos_id=data.vocab.bos_id,
-                    unk_id=data.vocab.unk_id,
-                    vectors=glove_embeddings).to(device)
+                             pad_id=data.vocab.pad_id,
+                             bos_id=data.vocab.bos_id,
+                             unk_id=data.vocab.unk_id,
+                             vectors=glove_embeddings).to(device)
 
     parameters = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = optim.Adam(parameters, lr=opt['learning_rate'])
@@ -102,6 +102,7 @@ def train(opt, data):
 
 if __name__ == '__main__':
     opt = set_args()
+    opt['mode'] = 'a'
     data = CnnDm(opt)
     opt['vocab_size'] = len(data.vocab)
     train(opt, data)
