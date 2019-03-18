@@ -63,7 +63,7 @@ def f1_score(pred, gold):
     pred = set(pred)
     gold = set(gold)
     cross_size = len(pred & gold)
-    if cross_size == 0: return 0.
+    if cross_size == 0: return 0., 0., 0.
     prec = 1. * cross_size / len(pred)
     rec = 1. * cross_size / len(gold)
     f1 = 2 * prec * rec / (prec + rec)

@@ -49,6 +49,5 @@ class PointerNetwork(nn.Module):
         if target is not None:
             return self.decoder(enc_outs, target, source_rep_mask, target_length)
         # Prediction phase
-        # TODO: not implemented yet
         else:
-            return
+            return self.decoder.predict(enc_outs, source_rep_mask)

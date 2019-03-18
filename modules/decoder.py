@@ -157,10 +157,10 @@ class PointerNetworkDecoder(nn.Module):
             pred = prob.argmax(dim=-1, keepdim=True)
             preds.append(pred)
 
-            lstm_in = torch.gater(
-                enc_outs, dim=1, index=pred.exapnd(batch_size, 1, hidden_dim)
+            lstm_in = torch.gather(
+                enc_outs, dim=1, index=pred.expand(batch_size, 1, hidden_dim)
             )
-        return torch.cat(preds, dim=1)
+        return torch.cat(preds, dim=1).squeeze(-1)
 
     def reorder_sequence(self, x, reorder_idx):
         return x[reorder_idx]
