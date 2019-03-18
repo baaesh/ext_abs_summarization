@@ -57,3 +57,14 @@ def rouge_n(output, reference, n=1, mode='f'):
             return recall
         else:
             return f_score
+
+
+def f1_score(pred, gold):
+    pred = set(pred)
+    gold = set(gold)
+    cross_size = len(pred & gold)
+    if cross_size == 0: return 0.
+    prec = 1. * cross_size / len(pred)
+    rec = 1. * cross_size / len(gold)
+    f1 = 2 * prec * rec / (prec + rec)
+    return f1, prec, rec
