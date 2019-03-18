@@ -21,6 +21,7 @@ def model_config(parser):
 
     # decoder
     parser.add_argument('--max_len', type=int, default=120)
+    parser.add_argument('--max_ext', type=int, default=7)
 
     return parser
 

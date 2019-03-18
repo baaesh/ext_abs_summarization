@@ -114,7 +114,7 @@ class PointerNetworkDecoder(nn.Module):
         self.point_attn = AdditiveAttention(opt, k_dim=self.input_size)
 
     def forward(self, enc_outs, target, source_rep_mask=None, target_length=None):
-        lstm_in, lstm_states = self._prepare(enc_outs, target)
+        lstm_in, _, lstm_states = self._prepare(enc_outs, target)
 
         ### LSTM
         target_length, indices = torch.sort(target_length, 0, True)
@@ -138,21 +138,50 @@ class PointerNetworkDecoder(nn.Module):
 
         return (probs + 1e-20).log()
 
+    def predict(self, enc_outs, source_rep_mask=None):
+        _, init_in, lstm_states = self._prepare(enc_outs)
+        batch_size, _, hidden_dim = enc_outs.size()
+
+        lstm_in = init_in
+        preds = []
+        for i in range(self.opt['max_ext']):
+            # lstm_in: batch_size x 1 x input_dim
+            # lstm_out: batch_size x 1 x hidden_units
+            lstm_out, lstm_states = self.lstm(lstm_in, lstm_states)
+
+            # glimpse: batch_size x 1 x hidden_units
+            glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, enc_outs, source_rep_mask)
+            # prob: batch_size x 1 x num_sentence
+            _, prob = self.point_attn(glimpse, enc_outs, rep_mask=source_rep_mask)
+
+            pred = prob.argmax(dim=-1, keepdim=True)
+            preds.append(pred)
+
+            lstm_in = torch.gater(
+                enc_outs, dim=1, index=pred.exapnd(batch_size, 1, hidden_dim)
+            )
+        return torch.cat(preds, dim=1)
+
     def reorder_sequence(self, x, reorder_idx):
         return x[reorder_idx]
 
-    def _prepare(self, enc_outs, target):
-        batch_size, num_target = target.size()
-        hidden_dim = enc_outs.size(2)
-
-        init_in = self.init_in.unsqueeze(0).unsqueeze(1).expand(batch_size, 1, hidden_dim)
-        ptr_in = torch.gather(
-            enc_outs, dim=1, index=target.unsqueeze(2).expand(batch_size, num_target, hidden_dim)
-        )
-        # lstm_in: batch_size x num_target x hidden_units
-        lstm_in = torch.cat([init_in, ptr_in], dim=1)
+    def _prepare(self, enc_outs, target=None):
+        batch_size, _, hidden_dim = enc_outs.size()
 
         size = (self.num_layers, batch_size, self.hidden_size)
         lstm_states = (self.init_h.unsqueeze(1).expand(*size).contiguous(),
                        self.init_c.unsqueeze(1).expand(*size).contiguous())
-        return lstm_in, lstm_states
+
+        init_in = self.init_in.unsqueeze(0).unsqueeze(1).expand(batch_size, 1, hidden_dim)
+
+        lstm_in = None
+        if target is not None:
+            _, num_target = target.size()
+
+            ptr_in = torch.gather(
+                enc_outs, dim=1, index=target.unsqueeze(2).expand(batch_size, num_target, hidden_dim)
+            )
+            # lstm_in: batch_size x num_target x hidden_units
+            lstm_in = torch.cat([init_in, ptr_in], dim=1)
+
+        return lstm_in, init_in, lstm_states
