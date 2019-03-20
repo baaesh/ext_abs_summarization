@@ -150,6 +150,7 @@ class CnnDmDataset(Dataset):
     def rein_collate(self, batch):
         d = {'id': [],
              'article': {'sentences': [], 'sentences_extended': [],
+                         'sentences_origin': [], 'sentences_extended_origin': [],
                          'num_sentence': [], 'length': []},
              'abstract': {'words': [], 'words_extended': [], 'length': []},
              'oov_tokens': []}
@@ -159,9 +160,14 @@ class CnnDmDataset(Dataset):
             oov_idx = len(self._vocab)
             oov_tokens = {}
             article_sents = []
+            article_sents_origin = []
             article_sents_extended = []
+            article_sents_extended_origin = []
             lengths = []
             article_sents.append([self._vocab.pad_id] * self.opt['art_max_len'])
+            article_sents_origin.append([])
+            article_sents_extended.append([self._vocab.pad_id] * self.opt['art_max_len'])
+            article_sents_extended_origin.append([])
             for art_sent in ex['article']:
                 tokens = art_sent.split()
                 token_ids = []
@@ -179,6 +185,8 @@ class CnnDmDataset(Dataset):
                 length = len(token_ids)
                 assert len(token_ids) == len(token_extended_ids)
 
+                article_sents_origin.append(token_ids)
+                article_sents_extended_origin.append(token_extended_ids)
                 # Cut too long sentences
                 if length > self.opt['art_max_len']:
                     token_ids = token_ids[:self.opt['art_max_len']]
@@ -217,7 +225,9 @@ class CnnDmDataset(Dataset):
 
             d['id'].append(ex['id'])
             d['article']['sentences'].append(self.to_tensor(article_sents))
+            d['article']['sentences_origin'].append(article_sents_origin)
             d['article']['sentences_extended'].append(self.to_tensor(article_sents_extended))
+            d['article']['sentences_extended_origin'].append(article_sents_extended_origin)
             d['article']['num_sentence'].append(len(article_sents))
             d['article']['length'].append(self.to_tensor(lengths))
             d['oov_tokens'].append(oov_tokens)
