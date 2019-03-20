@@ -92,8 +92,9 @@ def train(opt, data):
                 for _, batch in enumerate(data.valid_loader):
                     model.eval()
                     batch = to_device(batch, device=device)
-                    preds, _, _ = model(batch['article']['sentences'],
-                                  batch['article']['length']).cpu().numpy()
+                    (preds, _), _ = model(batch['article']['sentences'],
+                                  batch['article']['length'])
+                    preds = preds.cpu().numpy()
                     golds = batch['target']['positions'].cpu().numpy()
                     for i in range(len(golds)):
                         pred = strip(preds[i], len(preds[i]), data.vocab.pad_id)
