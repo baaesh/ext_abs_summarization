@@ -1,3 +1,6 @@
+import copy
+import os
+
 import torch
 from torch import nn, optim
 
@@ -33,6 +36,15 @@ def strip(words_list, max_len, bos_id, eos_id):
     return words_list[start_idx:end_idx]
 
 
+def save_checkpoint(opt, save_dict, max_rougeL):
+    model_name_str = 'Abstractor_'
+
+    if not os.path.exists('saved_models'):
+        os.makedirs('saved_models')
+    model_name = f'{model_name_str}_{opt["model_time"]}_{max_rougeL:.4f}.pth'
+    torch.save(save_dict, 'saved_models/' + model_name)
+
+
 def train(opt, data):
     print('Loading GloVe pretrained vectors')
     glove_embeddings = load_pth(opt['glove_path'])
@@ -48,6 +60,8 @@ def train(opt, data):
     optimizer = optim.Adam(parameters, lr=opt['learning_rate'])
     criterion = nn.NLLLoss()
 
+    max_rougeL = 0
+    best_model, best_opt, best_epoch = None, None, 0
     print('Training Start!')
     for epoch in range(opt['epochs']):
         loss = 0
@@ -99,6 +113,16 @@ def train(opt, data):
                       ': ROUGE-1 ' + str(rouge1_sum / count) +
                       ' ROUGE-2 ' + str(rouge2_sum / count) +
                       ' ROUGE-L ' + str(rougeL_sum / count))
+                if max_rougeL < rougeL_sum / count:
+                    max_rougeL = rougeL_sum / count
+                    best_model = copy.deepcopy(model.state_dict())
+                    best_opt = copy.deepcopy(optimizer.state_dict())
+                    best_epoch = epoch
+    save_checkpoint(opt,
+                    {'epoch': best_epoch,
+                     'model_state_dict': best_model,
+                     'optimizer_state_dict': best_opt},
+                    max_rougeL)
 
 
 if __name__ == '__main__':

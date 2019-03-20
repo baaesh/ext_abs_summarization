@@ -1,3 +1,7 @@
+import copy
+import os
+from time import gmtime, strftime
+
 import torch
 from torch import nn, optim
 
@@ -30,6 +34,15 @@ def strip(idx_list, max_len, pad_id):
     return idx_list[:end_idx]
 
 
+def save_checkpoint(opt, save_dict, max_dev_f1):
+    model_name_str = 'Extractor_'
+
+    if not os.path.exists('saved_models'):
+        os.makedirs('saved_models')
+    model_name = f'{model_name_str}_{opt["model_time"]}_{max_dev_f1:.4f}.pth'
+    torch.save(save_dict, 'saved_models/' + model_name)
+
+
 def train(opt, data):
     print('Loading GloVe pretrained vectors')
     glove_embeddings = load_pth(opt['glove_path'])
@@ -43,6 +56,8 @@ def train(opt, data):
     optimizer = optim.Adam(parameters, lr=opt['learning_rate'])
     criterion = nn.NLLLoss()
 
+    max_dev_f1 = 0
+    best_model, best_opt, best_epoch = None, None, 0
     print('Training Start!')
     for epoch in range(opt['epochs']):
         loss = 0
@@ -77,7 +92,7 @@ def train(opt, data):
                 for _, batch in enumerate(data.valid_loader):
                     model.eval()
                     batch = to_device(batch, device=device)
-                    preds = model(batch['article']['sentences'],
+                    preds, _, _ = model(batch['article']['sentences'],
                                   batch['article']['length']).cpu().numpy()
                     golds = batch['target']['positions'].cpu().numpy()
                     for i in range(len(golds)):
@@ -88,16 +103,28 @@ def train(opt, data):
                         prec_sum += prec
                         rec_sum += rec
                         count += 1
-
-                print('step ' + str(step + 1) + '/' + str(len(data.train_loader)) +
-                      ': F1 ' + str(f1_sum / count) +
-                      ' Precision ' + str(prec_sum / count) +
-                      ' Recall ' + str(rec_sum / count))
+                f1_avg = f1_sum / count
+                prec_avg = prec_sum / count
+                rec_avg = rec_sum / count
+                print('step %d/%d: F1 %.4f Precision %.4f Recall %.4f' %
+                      (step + 1, len(data.train_loader),
+                       f1_avg, prec_avg, rec_avg))
+                if max_dev_f1 < f1_avg:
+                    max_dev_f1 = f1_avg
+                    best_model = copy.deepcopy(model.state_dict())
+                    best_opt = copy.deepcopy(optimizer.state_dict())
+                    best_epoch = epoch
+    save_checkpoint(opt,
+                    {'epoch': best_epoch,
+                     'model_state_dict': best_model,
+                     'optimizer_state_dict': best_opt},
+                    max_dev_f1)
 
 
 if __name__ == '__main__':
     opt = set_args()
     opt['mode'] = 'e'
+    opt['model_time'] = strftime('%H:%M:%S', gmtime())
     data = CnnDm(opt)
     opt['vocab_size'] = len(data.vocab)
     train(opt, data)
