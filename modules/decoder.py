@@ -110,8 +110,8 @@ class PointerNetworkDecoder(nn.Module):
                             num_layers=self.num_layers,
                             batch_first=True)
 
-        self.glimpse_attn = AdditiveAttention(opt, k_dim=self.input_size)
-        self.point_attn = AdditiveAttention(opt, k_dim=self.input_size)
+        self.glimpse_attn = AdditiveAttention(opt, k_dim=self.input_size, hidden_dim=self.hidden_size)
+        self.point_attn = AdditiveAttention(opt, k_dim=self.input_size, hidden_dim=self.hidden_size)
 
     def forward(self, enc_outs, target, source_rep_mask=None, target_length=None):
         lstm_in, _, lstm_states = self._prepare(enc_outs, target)
@@ -144,6 +144,7 @@ class PointerNetworkDecoder(nn.Module):
 
         lstm_in = init_in
         preds = []
+        logits = []
         for i in range(self.opt['max_ext']):
             # lstm_in: batch_size x 1 x input_dim
             # lstm_out: batch_size x 1 x hidden_units
@@ -154,13 +155,14 @@ class PointerNetworkDecoder(nn.Module):
             # prob: batch_size x 1 x num_sentence
             _, prob = self.point_attn(glimpse, enc_outs, rep_mask=source_rep_mask)
 
+            logits.append((prob + 1e-20).log())
             pred = prob.argmax(dim=-1, keepdim=True)
             preds.append(pred)
 
             lstm_in = torch.gather(
                 enc_outs, dim=1, index=pred.expand(batch_size, 1, hidden_dim)
             )
-        return torch.cat(preds, dim=1).squeeze(-1)
+        return torch.cat(preds, dim=1).squeeze(-1), torch.cat(logits, dim=1)
 
     def reorder_sequence(self, x, reorder_idx):
         return x[reorder_idx]

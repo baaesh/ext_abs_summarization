@@ -50,4 +50,4 @@ class PointerNetwork(nn.Module):
             return self.decoder(enc_outs, target, source_rep_mask, target_length)
         # Prediction phase
         else:
-            return self.decoder.predict(enc_outs, source_rep_mask)
+            return self.decoder.predict(enc_outs, source_rep_mask), enc_outs
