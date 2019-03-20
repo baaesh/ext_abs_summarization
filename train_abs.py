@@ -1,5 +1,6 @@
 import copy
 import os
+from time import gmtime, strftime
 
 import torch
 from torch import nn, optim
@@ -128,6 +129,7 @@ def train(opt, data):
 if __name__ == '__main__':
     opt = set_args()
     opt['mode'] = 'a'
+    opt['model_time'] = strftime('%H:%M:%S', gmtime())
     data = CnnDm(opt)
     opt['vocab_size'] = len(data.vocab)
     train(opt, data)
