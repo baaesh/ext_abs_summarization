@@ -116,6 +116,9 @@ class PointerNetworkDecoder(nn.Module):
     def forward(self, enc_outs, target, source_rep_mask=None, target_length=None):
         lstm_in, _, lstm_states = self._prepare(enc_outs, target)
 
+        # including EOE token
+        target_length += 1
+
         ### LSTM
         target_length, indices = torch.sort(target_length, 0, True)
 
@@ -140,11 +143,12 @@ class PointerNetworkDecoder(nn.Module):
 
     def predict(self, enc_outs, source_rep_mask=None):
         _, init_in, lstm_states = self._prepare(enc_outs)
-        batch_size, _, hidden_dim = enc_outs.size()
+        batch_size, num_sentence, hidden_dim = enc_outs.size()
 
         lstm_in = init_in
         preds = []
         logits = []
+        prob_mask = torch.ones(batch_size, 1, num_sentence).to(enc_outs.device)
         for i in range(self.opt['max_ext']):
             # lstm_in: batch_size x 1 x input_dim
             # lstm_out: batch_size x 1 x hidden_units
@@ -154,10 +158,13 @@ class PointerNetworkDecoder(nn.Module):
             glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, enc_outs, source_rep_mask)
             # prob: batch_size x 1 x num_sentence
             _, prob = self.point_attn(glimpse, enc_outs, rep_mask=source_rep_mask)
+            prob = prob * prob_mask
 
             logits.append((prob + 1e-20).log())
             pred = prob.argmax(dim=-1, keepdim=True)
             preds.append(pred)
+            prob_mask = prob_mask.scatter_(2, pred, 0)
+            prob_mask[:, :, 0] = 1
 
             lstm_in = torch.gather(
                 enc_outs, dim=1, index=pred.expand(batch_size, 1, hidden_dim)
