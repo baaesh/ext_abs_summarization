@@ -1,6 +1,7 @@
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
+
 # https://github.com/ChenRocks/fast_abs_rl/blob/master/model/util.py
 def sequence_mean(sequence, seq_lens=None, dim=1, keepdim=False):
     if seq_lens is not None:
@@ -35,3 +36,15 @@ def point2text(points, source, max_len, pad_id):
 def one_hot_embedding(labels, batch_size, num_classes, device):
     zeros = torch.zeros(batch_size, num_classes).to(device)
     return zeros.scatter_(1, labels.unsqueeze(-1), 1)
+
+
+def idx2origin(idx_list, vocab, oov_tokens):
+    tokens = []
+    for idx in idx_list:
+        if idx >= len(vocab):
+            for token, oov_idx in oov_tokens.items():
+                if oov_idx == idx:
+                    tokens.append(token.strip())
+        else:
+            tokens.append(vocab.itos(idx).strip())
+    return ' '.join(tokens)

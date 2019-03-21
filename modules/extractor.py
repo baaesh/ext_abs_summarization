@@ -25,7 +25,7 @@ class PointerNetwork(nn.Module):
 
         enc_input_size = opt['num_feature_maps'] * len(opt['filter_sizes'])
         self.encoder = LSTMEncoder(opt, input_size=enc_input_size, bidirectional=True)
-        enc_out_dim = 2 * opt['lstm_hidden_units'] if opt['lstm_bidirection'] else opt['lstm_hidden_units']
+        enc_out_dim = 2 * opt['lstm_hidden_units']
         self.decoder = PointerNetworkDecoder(opt, input_size=enc_out_dim)
 
     def forward(self, source, source_length, target=None, target_length=None):
