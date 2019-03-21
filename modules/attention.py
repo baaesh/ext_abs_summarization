@@ -79,8 +79,10 @@ class AdditiveAttention(nn.Module):
             attn = masked_softmax(u, rep_mask.unsqueeze(1), dim=2)
 
         out = None
+        # attn: batch_size x num_target x sequence_length
         if v is not None:
-            # attn: batch_size x num_target x sequence_length
+            out = torch.bmm(attn, v)
+        else:
             # k_proj: batch_size x sequence_length x hidden_unis
             # out: batch_size x num_target x hidden_units
             out = torch.bmm(attn, k_proj.squeeze(1))

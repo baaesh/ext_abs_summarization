@@ -155,13 +155,14 @@ class PointerNetworkDecoder(nn.Module):
             lstm_out, lstm_states = self.lstm(lstm_in, lstm_states)
 
             # glimpse: batch_size x 1 x hidden_units
-            glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, enc_outs, source_rep_mask)
+            glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, rep_mask=source_rep_mask)
             # prob: batch_size x 1 x num_sentence
             _, prob = self.point_attn(glimpse, enc_outs, rep_mask=source_rep_mask)
-            prob = prob * prob_mask
+            #prob = prob * prob_mask
 
             logits.append((prob + 1e-20).log())
-            pred = prob.argmax(dim=-1, keepdim=True)
+
+            pred = (prob * prob_mask).argmax(dim=-1, keepdim=True)
             preds.append(pred)
             prob_mask = prob_mask.scatter_(2, pred, 0)
             prob_mask[:, :, 0] = 1

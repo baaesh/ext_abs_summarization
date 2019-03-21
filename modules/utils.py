@@ -12,7 +12,14 @@ def sequence_mean(sequence, seq_lens=None, dim=1, keepdim=False):
     return mean
 
 
-def point2text(points, source, max_len, pad_id):
+def remove_pad(tokens, pad_id):
+    for i in range(len(tokens)):
+        if tokens[i] == pad_id:
+            return tokens[:i]
+    return tokens
+
+
+def point2text(points, source, source_length, pad_id, device='cuda:0'):
     # points: batch_size x max_ext
     batch_size, max_ext = points.size()
     points = points.cpu().numpy()
@@ -24,12 +31,17 @@ def point2text(points, source, max_len, pad_id):
         for j in range(max_ext):
             if source[i][point[j]] == pad_id:
                 break
-            extracted += source[i][point[j]]
+            extracted += remove_pad(source[i][point[j]], pad_id)
+
+        # heuristic... to avoid error
+        if len(extracted) == 0:
+            extracted += [1]
+
         batch_extracted.append(torch.tensor(extracted))
-        batch_length.appned(len(extracted))
+        batch_length.append(len(extracted))
     batch_extracted = pad_sequence(
-        batch_extracted, batch_first=True, padding_value=pad_id)
-    batch_length = torch.tensor(batch_length)
+        batch_extracted, batch_first=True, padding_value=pad_id).to(device)
+    batch_length = torch.tensor(batch_length).to(device)
     return batch_extracted, batch_length
 
 

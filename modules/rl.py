@@ -19,7 +19,7 @@ class PtrScorer(nn.Module):
         self.lstm = copy.deepcopy(ptr_decoder.lstm)
         self.attn = copy.deepcopy(ptr_decoder.glimpse_attn)
 
-        self.score_linear = nn.Linear(ptr_decoder.hidden_size, 1)
+        self.score_linear = nn.Linear(ptr_decoder.input_size, 1)
 
     def forward(self, enc_outs, num_sent, num_pred):
         rep_mask = get_rep_mask(num_sent)
@@ -35,12 +35,12 @@ class PtrScorer(nn.Module):
 
         scores = []
         for i in range(num_pred):
-            lstm_out, _ = self.lstm(lstm_in, lstm_states)
+            lstm_out, lstm_states = self.lstm(lstm_in, lstm_states)
             output, _ = self.attn(lstm_out, enc_outs, enc_outs, rep_mask)
-            score = self.score_linear(output)
+            score = self.score_linear(output).squeeze(-1)
             scores.append(score)
             lstm_in = output
-        return scores
+        return torch.cat(scores, dim=1)
 
 
 class ActorCritic(nn.Module):
@@ -59,9 +59,9 @@ class ActorCritic(nn.Module):
         batch_size, _, max_length = source.size()
 
         # preds: batch_size x max_ext
-        preds, enc_outs = self._ext(source, num_sentence)
-        _, max_ext = source.size()
+        (preds, logits), enc_outs = self._ext(source, num_sentence)
+        _, max_ext = preds.size()
 
         scores = self.critic(enc_outs, num_sentence, max_ext)
 
-        return preds, scores
+        return (preds, logits), scores
