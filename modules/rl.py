@@ -21,7 +21,15 @@ class PtrScorer(nn.Module):
 
         self.score_linear = nn.Linear(ptr_decoder.input_size, 1)
 
-    def forward(self, enc_outs, num_sent, num_pred):
+    def forward(self, enc_outs, exts, num_sent, num_pred):
+        lstm_in, lstm_states, rep_mask = self._prepare(enc_outs, exts, num_sent, num_pred)
+
+        lstm_out, _ = self.lstm(lstm_in, lstm_states)
+        output, _ = self.attn(lstm_out, enc_outs, enc_outs, rep_mask)
+        scores = self.score_linear(output).squeeze(-1)
+        return scores
+
+    def _prepare(self, enc_outs, exts, num_sent, num_pred):
         rep_mask = get_rep_mask(num_sent)
 
         batch_size, _, input_dim = enc_outs.size()
@@ -31,16 +39,16 @@ class PtrScorer(nn.Module):
         lstm_states = (self.init_h.unsqueeze(1).expand(*size).contiguous(),
                        self.init_c.unsqueeze(1).expand(*size).contiguous())
 
-        lstm_in = self.init_in.unsqueeze(0).unsqueeze(1).expand(batch_size, 1, input_dim)
+        init_in = self.init_in.unsqueeze(0).unsqueeze(1).expand(batch_size, 1, input_dim)
 
-        scores = []
-        for i in range(num_pred):
-            lstm_out, lstm_states = self.lstm(lstm_in, lstm_states)
-            output, _ = self.attn(lstm_out, enc_outs, enc_outs, rep_mask)
-            score = self.score_linear(output).squeeze(-1)
-            scores.append(score)
-            lstm_in = output
-        return torch.cat(scores, dim=1)
+        exts = exts[:, :-1]
+        ptr_in = torch.gather(
+            enc_outs, dim=1, index=exts.unsqueeze(2).expand(batch_size, num_pred - 1, input_dim)
+        )
+        # lstm_in: batch_size x num_target x hidden_units
+        lstm_in = torch.cat([init_in, ptr_in], dim=1)
+
+        return lstm_in, lstm_states, rep_mask
 
 
 class ActorCritic(nn.Module):
@@ -62,6 +70,6 @@ class ActorCritic(nn.Module):
         (preds, logits), enc_outs = self._ext(source, num_sentence)
         _, max_ext = preds.size()
 
-        scores = self.critic(enc_outs, num_sentence, max_ext)
+        scores = self.critic(enc_outs, preds, num_sentence, max_ext)
 
         return (preds, logits), scores
