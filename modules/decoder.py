@@ -133,7 +133,7 @@ class PointerNetworkDecoder(nn.Module):
 
         ### glimpse attention
         # glimpse: batch_size x num_target x hidden_units
-        glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, enc_outs, source_rep_mask)
+        glimpse, _ = self.glimpse_attn(lstm_out, enc_outs, rep_mask=source_rep_mask)
 
         ### point attention
         # probs: batch_size x num_target x num_sentence
