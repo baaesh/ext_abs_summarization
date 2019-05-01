@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 
 
 def get_rep_mask(length, max_length=None):
@@ -22,6 +23,17 @@ def get_rep_mask(length, max_length=None):
     return rep_mask
 
 
+def get_rep_mask_2d(lengths, max_length=None):
+    device = lengths.device
+    if max_length is None:
+        max_length = lengths.max()
+    batch_size = lengths.size()[0]
+    range_tensor = torch.arange(max_length, device=device).expand(batch_size, -1).unsqueeze(1)
+    lengths = lengths.unsqueeze(-1)
+    rep_mask = torch.lt(range_tensor, lengths)
+    return rep_mask
+
+
 # Representation mask for sentences of variable lengths
 def get_rep_mask_tile(rep_mask):
     batch_size, sentence_len, _ = rep_mask.size()
@@ -33,16 +45,12 @@ def get_rep_mask_tile(rep_mask):
     return mask
 
 
-# Masked softmax
-def masked_softmax(vec, mask, dim=1):
-    masked_vec = vec * mask.float()
-    max_vec = torch.max(masked_vec, dim=dim, keepdim=True)[0]
-    exps = torch.exp(masked_vec - max_vec)
-    masked_exps = exps * mask.float()
-    masked_sums = masked_exps.sum(dim, keepdim=True)
-    zeros = (masked_sums == 0)
-    masked_sums += zeros.float()
-    return masked_exps / (masked_sums + 1e-20)
+def masked_softmax(score, mask, dim=1):
+    """ [(...), T]
+    user should handle mask shape"""
+    score = score.masked_fill(mask == 0, -1e18)
+    norm_score = F.softmax(score, dim=dim)
+    return norm_score
 
 
 def get_target_mask(target, num_sequence):
