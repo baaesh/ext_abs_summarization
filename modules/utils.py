@@ -18,6 +18,20 @@ def remove_pad(tokens, pad_id):
             return tokens[:i]
     return tokens
 
+def point2result(points, origins):
+    # points: batch_size x max_ext
+    batch_size, max_ext = points.size()
+    points = points.cpu().numpy()
+    batch_extracted = []
+    for i in range(batch_size):
+        point = points[i]
+        origin = origins[i]
+        extracted = []
+        for j in range(max_ext):
+            extracted.append(origin[point[j]])
+        batch_extracted.append(extracted)
+    return batch_extracted
+
 
 def point2text(points, source, source_length, pad_id, device='cuda:0'):
     # points: batch_size x max_ext
@@ -60,3 +74,25 @@ def idx2origin(idx_list, vocab, oov_tokens):
         else:
             tokens.append(vocab.itos(idx).strip())
     return ' '.join(tokens)
+
+
+def strip_positions(idx_list, max_len, pad_id):
+    end_idx = max_len
+    for i in range(len(idx_list)):
+        if idx_list[i] == pad_id:
+            end_idx = i
+            break
+    return idx_list[:end_idx]
+    # return [idx for idx in idx_list if idx != pad_id]
+
+
+def strip_sequence(words_list, max_len, bos_id, eos_id):
+    start_idx = 0
+    if words_list[0] == bos_id:
+        start_idx = 1
+    end_idx = max_len
+    for i in range(len(words_list)):
+        if words_list[i] == eos_id:
+            end_idx = i
+            break
+    return words_list[start_idx:end_idx]
