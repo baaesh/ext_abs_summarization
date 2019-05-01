@@ -30,7 +30,8 @@ class PointerNetwork(nn.Module):
         enc_out_dim = 2 * opt['lstm_hidden_units']
         self.decoder = PointerNetworkDecoder(opt, input_size=enc_out_dim)
 
-    def forward(self, source, num_sents, num_words=None, target=None, target_length=None):
+    def forward(self, source, lens=None, target=None, target_length=None):
+        num_sents = lens.sum(dim=-1)
 
         ### Get mask
         source_rep_mask = get_rep_mask(num_sents)
@@ -82,12 +83,13 @@ class HierarchicalPointerNetwork(nn.Module):
         enc_out_dim = opt['num_feature_maps'] * len(opt['filter_sizes'])
         self.decoder = ConditionalPointerNetworkDecoder(opt, input_size=enc_out_dim)
 
-    def forward(self, source, num_sents, num_words, target=None, target_length=None):
+    def forward(self, source, lens, target=None, target_length=None):
         batch_size, num_sentences, _ = source.size()
+        num_sents = lens.sum(dim=-1)
 
         ### Get mask
         source_rep_mask = get_rep_mask(num_sents)
-        source_context_mask = get_rep_mask_2d(num_words, max_length=self.opt['art_max_len'])
+        source_context_mask = get_rep_mask_2d(lens, max_length=self.opt['art_max_len'])
 
         ### Word Embedding
         # batch_size x num_sentences x num_words x word_dim
