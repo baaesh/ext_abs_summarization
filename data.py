@@ -57,4 +57,4 @@ class CnnDm():
         self.test_loader = DataLoader(dataset=self.test_dataset,
                                       batch_size=opt['batch_size'],
                                       shuffle=False,
-                                      collate_fn= self.test_dataset.collate)
+                                      collate_fn=self.test_dataset.collate)

@@ -18,6 +18,7 @@ def remove_pad(tokens, pad_id):
             return tokens[:i]
     return tokens
 
+
 def point2result(points, origins):
     # points: batch_size x max_ext
     batch_size, max_ext = points.size()

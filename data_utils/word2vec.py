@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 def make_embedding(vocab, w2v_file, initializer=None):
-    attrs = basename(w2v_file).split('.')  #word2vec.{dim}d.{vsize}k.bin
+    attrs = basename(w2v_file).split('.')  # word2vec.{dim}d.{vsize}k.bin
     w2v = gensim.models.Word2Vec.load(w2v_file).wv
     vocab_size = len(vocab)
     emb_dim = int(attrs[-3][:-1])
