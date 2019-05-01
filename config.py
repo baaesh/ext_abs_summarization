@@ -11,7 +11,7 @@ def model_config(parser):
 
     ### common
     # word embedding
-    parser.add_argument('--word_dim', type=int, default=300)
+    parser.add_argument('--word_dim', type=int, default=128)
     parser.add_argument('--fix_embedding', default=False, action='store_true')
 
     # LSTM encoder
@@ -21,7 +21,7 @@ def model_config(parser):
 
     # decoder
     parser.add_argument('--max_len', type=int, default=120)
-    parser.add_argument('--max_ext', type=int, default=7)
+    parser.add_argument('--max_ext', type=int, default=4)
 
     return parser
 
@@ -29,11 +29,11 @@ def model_config(parser):
 def data_config(parser):
     parser.add_argument('--train_path', default='data/cnn-dailymail/train')
     parser.add_argument('--valid_path', default='data/cnn-dailymail/valid')
+    parser.add_argument('--test_path', default='data/cnn-dailymail/test')
     parser.add_argument('--vocab_path', default='data/cnn-dailymail/vocab/tokens.txt')
     parser.add_argument('--glove_path', default='data/glove/glove.pth')
     parser.add_argument('--extractor_path', default=None)
     parser.add_argument('--abstractor_path', default=None)
-    parser.add_argument('--lazy_ratio', type=float, default=0.1)
     parser.add_argument('--art_max_len', type=int, default=100)
     return parser
 
@@ -44,9 +44,12 @@ def train_config(parser):
     parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--learning_rate', type=float, default=0.001)
+    parser.add_argument('--norm_limit', type=float, default=2.0)
+    parser.add_argument('--lr_gamma', type=float, default=0.8)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--print_every', type=int, default=100)
     parser.add_argument('--validate_every', type=int, default=1000)
+    parser.add_argument('--test_every', type=int, default=1000)
     return parser
 
 
