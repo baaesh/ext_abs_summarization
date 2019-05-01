@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -28,222 +30,186 @@ class CnnDmDataset(Dataset):
 
     def collate(self, batch):
         if self._mode == 'e':
-            return self.ext_collate(batch)
+            return self.full_collate(batch)
         elif self._mode == 'a':
-            return self.abs_collate(batch)
+            return self.abs_collate_(batch)
+        elif self._mode == 'r':
+            return self.full_collate(batch)
         else:
-            return self.rein_collate(batch)
+            return self.full_collate(batch)
 
     def to_tensor(self, seq):
         return torch.tensor(seq)
 
-    def ext_collate(self, batch):
+    def process_article(self, ex):
+        sents = []
+        sents_unk = []
+        lens = []
+
+        oov_idx = len(self._vocab)
+        oov_tokens = {}
+
+        for sent in ex['article']:
+            tokens = sent.split()
+            token_ids = []
+            token_unk_ids = []
+            for token in tokens:
+                idx = self._vocab.stoi(token)
+                if not self._vocab.has_word(token):
+                    if token not in oov_tokens:
+                        oov_tokens[token] = oov_idx
+                        oov_idx += 1
+                    token_ids.append(oov_tokens[token])
+                else:
+                    token_ids.append(idx)
+                token_unk_ids.append(idx)
+            length = len(token_unk_ids)
+            assert len(token_ids) == len(token_unk_ids)
+
+            # Cut too long sentences
+            if length > self.opt['art_max_len']:
+                token_ids = token_ids[:self.opt['art_max_len']]
+                token_unk_ids = token_unk_ids[:self.opt['art_max_len']]
+                length = len(token_ids)
+            # Padding
+            while (len(token_ids) < self.opt['art_max_len']):
+                token_ids += [self._vocab.pad_id]
+                token_unk_ids += [self._vocab.pad_id]
+            assert len(token_ids) == len(token_unk_ids)
+            sents.append(token_ids)
+            sents_unk.append(token_unk_ids)
+            lens.append(length)
+        return sents, sents_unk, lens, oov_tokens
+
+    def process_extracted(self, ex):
+        text = []
+        text_unk = []
+
+        oov_idx = len(self._vocab)
+        oov_tokens = {}
+
+        for pos in ex['extracted']:
+            sent = ex['article'][pos]
+            tokens = sent.split()
+            for token in tokens:
+                idx = self._vocab.stoi(token)
+                if not self._vocab.has_word(token):
+                    if token not in oov_tokens:
+                        oov_tokens[token] = oov_idx
+                        oov_idx += 1
+                    text.append(oov_tokens[token])
+                else:
+                    text.append(idx)
+                text_unk.append(idx)
+        assert len(text) == len(text_unk)
+        return text, text_unk, len(text), oov_tokens
+
+    def process_abstract(self, ex, oov_tokens):
+        text = []
+        text_unk = []
+        for sent in ex['abstract']:
+            tokens = sent.split()
+            for token in tokens:
+                idx = self._vocab.stoi(token)
+                if not self._vocab.has_word(token) \
+                        and token in oov_tokens:
+                    text.append(oov_tokens[token])
+                else:
+                    text.append(idx)
+                text_unk.append(idx)
+        text.append(self._vocab.eos_id)
+        text_unk.append(self._vocab.eos_id)
+        assert len(text) == len(text_unk)
+        return text, text_unk, len(text)
+
+    def full_collate(self, batch):
         d = {'id': [],
-             'article': {'sentences': [], 'length': []},
-             'target': {'positions': [], 'length': []}}
+             'article': {'sents': [], 'sents_unk': [], 'lens': [], 'origin': []},
+             'target': {'position': [], 'len': []},
+             'abstract': {'text': [], 'text_unk': [], 'len': [], 'origin': []},
+             'oov_tokens': []}
 
         for ex in batch:
             # Article
-            article_sents = []
-            article_sents.append([self._vocab.pad_id] * self.opt['art_max_len'])
-            for art_sent in ex['article']:
-                tokens = art_sent.split()
-                token_ids = [self._vocab.stoi(token) for token in tokens]
-
-                # Cut too long sentences
-                if len(token_ids) > self.opt['art_max_len']:
-                    token_ids = token_ids[:self.opt['art_max_len']]
-                # Padding
-                while (len(token_ids) < self.opt['art_max_len']):
-                    token_ids += [self._vocab.pad_id]
-                article_sents.append(token_ids)
-
-            if len(article_sents) == 1 or len(ex['position']) == 0:
+            art_sents, art_sents_unk, art_lens, oov_tokens = self.process_article(ex)
+            if len(art_sents) < 1:
                 continue
 
-            d['id'].append(ex['id'])
-            d['article']['sentences'].append(self.to_tensor(article_sents))
-            d['article']['length'].append(len(article_sents))
-            # position index starts from 1
-            d['target']['positions'].append(self.to_tensor(ex['position']) + 1)
-            d['target']['length'].append(len(ex['position']))
+            # Target
+            target = ex['extracted']
+            if len(target) < 1:
+                continue
 
-        d['article']['sentences'] = pad_sequence(
-            d['article']['sentences'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['article']['length'] = self.to_tensor(d['article']['length'])
-        d['target']['positions'] = pad_sequence(
-            d['target']['positions'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['target']['length'] = self.to_tensor(d['target']['length'])
+            # Abstract
+            abs_text, abs_text_unk, abs_len = self.process_abstract(ex, oov_tokens)
+            if abs_len < 1:
+                continue
+            d['id'].append(ex['id'])
+            d['article']['sents'].append(self.to_tensor(art_sents))
+            d['article']['sents_unk'].append(art_sents_unk)
+            d['article']['lens'].append(self.to_tensor(art_lens))
+            d['article']['origin'].append(ex['article'])
+            d['oov_tokens'].append(oov_tokens)
+            d['abstract']['text'].append(self.to_tensor(abs_text))
+            d['abstract']['text_unk'].append(self.to_tensor(abs_text_unk))
+            d['abstract']['len'].append(abs_len)
+            d['abstract']['origin'].append(ex['abstract'])
+            d['target']['position'].append(self.to_tensor(target))
+            d['target']['len'].append(len(target))
+
+        d['article']['sents'] = pad_sequence(
+            d['article']['sents'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['article']['sents_unk'] = pad_sequence(
+            d['article']['sents_unk'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['article']['lens'] = pad_sequence(
+            d['article']['lens'], batch_first=True, padding_value=0)
+        d['abstract']['text'] = pad_sequence(
+            d['abstract']['text'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['abstract']['text_unk'] = pad_sequence(
+            d['abstract']['text_unk'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['abstract']['len'] = self.to_tensor(d['abstract']['len'])
+        d['target']['position'] = pad_sequence(
+            d['target']['position'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['target']['len'] = self.to_tensor(d['target']['len'])
 
         return d
 
-    def abs_collate(self, batch):
+    def abs_collate_(self, batch):
         d = {'id': [],
-             'extracted': {'words': [], 'words_extended': [], 'length': []},
-             'abstract': {'words': [], 'words_extended': [], 'length': []},
+             'extracted': {'text': [], 'text_unk': [], 'len': []},
+             'abstract': {'text': [], 'text_unk': [], 'len': [], 'origin': []},
              'oov_tokens': []}
 
         for ex in batch:
             # Extracted
-            oov_idx = len(self._vocab)
-            oov_tokens = {}
-            extracted = []
-            extracted_extended = []  # extended for pointer generator
-            for ext_sent in ex['extracted']:
-                tokens = ext_sent.split()
-                for token in tokens:
-                    idx = self._vocab.stoi(token)
-                    if not self._vocab.has_word(token):
-                        if token not in oov_tokens:
-                            oov_tokens[token] = oov_idx
-                            oov_idx += 1
-                        extracted_extended.append(oov_tokens[token])
-                    else:
-                        extracted_extended.append(idx)
-                    extracted.append(idx)
-            assert len(extracted) == len(extracted_extended)
+            ext_text, ext_text_unk, ext_len, oov_tokens = self.process_extracted(ex)
 
             # Abstract
-            abstract = [self._vocab.bos_id]
-            abstract_extended = [self._vocab.bos_id]  # extended for pointer generator
-            for abs_sent in ex['abstract']:
-                tokens = abs_sent.split()
-                for token in tokens:
-                    idx = self._vocab.stoi(token)
-                    if not self._vocab.has_word(token) \
-                            and token in oov_tokens:
-                        abstract_extended.append(oov_tokens[token])
-                    else:
-                        abstract_extended.append(idx)
-                    abstract.append(idx)
-            abstract.append(self._vocab.eos_id)
-            abstract_extended.append(self._vocab.eos_id)
-            assert len(abstract) == len(abstract_extended)
+            abs_text, abs_text_unk, abs_len = self.process_abstract(ex, oov_tokens)
 
-            if len(extracted) >= 220 or len(abstract) >= 125:
+            if len(ext_text) >= 220 or len(abs_text) >= 125:
                 continue
-            if len(extracted) == 0 or len(abstract) == 0:
+            if len(ext_text) == 0 or len(abs_text) == 0:
                 continue
 
             d['id'].append(ex['id'])
-            d['extracted']['words'].append(self.to_tensor(extracted))
-            d['extracted']['words_extended'].append(self.to_tensor(extracted_extended))
-            d['extracted']['length'].append(len(extracted))
+            d['extracted']['text'].append(self.to_tensor(ext_text))
+            d['extracted']['text_unk'].append(self.to_tensor(ext_text_unk))
+            d['extracted']['len'].append(ext_len)
             d['oov_tokens'].append(oov_tokens)
-            d['abstract']['words'].append(self.to_tensor(abstract))
-            d['abstract']['words_extended'].append(self.to_tensor(abstract_extended))
-            d['abstract']['length'].append(len(abstract))
+            d['abstract']['text'].append(self.to_tensor(abs_text))
+            d['abstract']['text_unk'].append(self.to_tensor(abs_text_unk))
+            d['abstract']['length'].append(abs_len)
 
-        d['extracted']['words'] = pad_sequence(
-            d['extracted']['words'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['extracted']['words_extended'] = pad_sequence(
-            d['extracted']['words_extended'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['extracted']['length'] = self.to_tensor(d['extracted']['length'])
-        d['abstract']['words'] = pad_sequence(
-            d['abstract']['words'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['abstract']['words_extended'] = pad_sequence(
-            d['abstract']['words_extended'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['abstract']['length'] = self.to_tensor(d['abstract']['length'])
-
-        return d
-
-    def rein_collate(self, batch):
-        d = {'id': [],
-             'article': {'sentences': [], 'sentences_extended': [],
-                         'sentences_origin': [], 'sentences_extended_origin': [],
-                         'num_sentence': [], 'length': []},
-             'abstract': {'words': [], 'words_extended': [], 'length': []},
-             'oov_tokens': []}
-
-        for ex in batch:
-            # Article
-            oov_idx = len(self._vocab)
-            oov_tokens = {}
-            article_sents = []
-            article_sents_origin = []
-            article_sents_extended = []
-            article_sents_extended_origin = []
-            lengths = []
-            article_sents.append([self._vocab.pad_id] * self.opt['art_max_len'])
-            article_sents_origin.append([])
-            article_sents_extended.append([self._vocab.pad_id] * self.opt['art_max_len'])
-            article_sents_extended_origin.append([])
-            for art_sent in ex['article']:
-                tokens = art_sent.split()
-                token_ids = []
-                token_extended_ids = []
-                for token in tokens:
-                    idx = self._vocab.stoi(token)
-                    if not self._vocab.has_word(token):
-                        if token not in oov_tokens:
-                            oov_tokens[token] = oov_idx
-                            oov_idx += 1
-                        token_extended_ids.append(oov_tokens[token])
-                    else:
-                        token_extended_ids.append(idx)
-                    token_ids.append(idx)
-                length = len(token_ids)
-                assert len(token_ids) == len(token_extended_ids)
-
-                article_sents_origin.append(token_ids)
-                article_sents_extended_origin.append(token_extended_ids)
-                # Cut too long sentences
-                if length > self.opt['art_max_len']:
-                    token_ids = token_ids[:self.opt['art_max_len']]
-                    token_extended_ids = token_extended_ids[:self.opt['art_max_len']]
-                    length = len(token_ids)
-                # Padding
-                while (len(token_ids) < self.opt['art_max_len']):
-                    token_ids += [self._vocab.pad_id]
-                    token_extended_ids += [self._vocab.pad_id]
-                assert len(token_ids) == len(token_extended_ids)
-                article_sents.append(token_ids)
-                article_sents_extended.append(token_extended_ids)
-                lengths.append(length)
-
-            # Abstract
-            abstract = [self._vocab.bos_id]
-            abstract_extended = [self._vocab.bos_id]  # extended for pointer generator
-            for abs_sent in ex['abstract']:
-                tokens = abs_sent.split()
-                for token in tokens:
-                    idx = self._vocab.stoi(token)
-                    if not self._vocab.has_word(token) \
-                            and token in oov_tokens:
-                        abstract_extended.append(oov_tokens[token])
-                    else:
-                        abstract_extended.append(idx)
-                    abstract.append(idx)
-            abstract.append(self._vocab.eos_id)
-            abstract_extended.append(self._vocab.eos_id)
-            assert len(abstract) == len(abstract_extended)
-
-            if len(article_sents) == 1 or len(ex['position']) == 0:
-                continue
-            if len(abstract) == 0 or len(abstract) >= 125:
-                continue
-
-            d['id'].append(ex['id'])
-            d['article']['sentences'].append(self.to_tensor(article_sents))
-            d['article']['sentences_origin'].append(article_sents_origin)
-            d['article']['sentences_extended'].append(self.to_tensor(article_sents_extended))
-            d['article']['sentences_extended_origin'].append(article_sents_extended_origin)
-            d['article']['num_sentence'].append(len(article_sents))
-            d['article']['length'].append(self.to_tensor(lengths))
-            d['oov_tokens'].append(oov_tokens)
-            d['abstract']['words'].append(self.to_tensor(abstract))
-            d['abstract']['words_extended'].append(self.to_tensor(abstract_extended))
-            d['abstract']['length'].append(len(abstract))
-
-        d['article']['sentences'] = pad_sequence(
-            d['article']['sentences'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['article']['sentences_extended'] = pad_sequence(
-            d['article']['sentences_extended'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['article']['num_sentence'] = self.to_tensor(d['article']['num_sentence'])
-        d['abstract']['words'] = pad_sequence(
-            d['abstract']['words'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['abstract']['words_extended'] = pad_sequence(
-            d['abstract']['words_extended'], batch_first=True, padding_value=self._vocab.pad_id)
-        d['abstract']['length'] = self.to_tensor(d['abstract']['length'])
+        d['extracted']['text'] = pad_sequence(
+            d['extracted']['text'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['extracted']['text_unk'] = pad_sequence(
+            d['extracted']['text_unk'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['extracted']['len'] = self.to_tensor(d['extracted']['len'])
+        d['abstract']['text'] = pad_sequence(
+            d['abstract']['text'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['abstract']['text_unk'] = pad_sequence(
+            d['abstract']['text_unk'], batch_first=True, padding_value=self._vocab.pad_id)
+        d['abstract']['len'] = self.to_tensor(d['abstract']['len'])
 
         return d
