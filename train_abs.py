@@ -2,13 +2,15 @@ import copy
 import os
 from time import gmtime, strftime
 
+from nltk import sent_tokenize
 import torch
 from torch import nn, optim
 
 from config import set_args
 from data import CnnDm
-from metric import rouge_L, rouge_n
 from modules.abstractor import Seq2Seq, PointerGenerator
+from modules.utils import idx2origin, strip_sequence
+import rouge
 
 
 def load_pth(path):
@@ -25,18 +27,6 @@ def to_device(batch, device):
         return batch
 
 
-def strip(words_list, max_len, bos_id, eos_id):
-    start_idx = 0
-    if words_list[0] == bos_id:
-        start_idx = 1
-    end_idx = max_len
-    for i in range(len(words_list)):
-        if words_list[i] == eos_id:
-            end_idx = i
-            break
-    return words_list[start_idx:end_idx]
-
-
 def save_checkpoint(opt, save_dict, max_rougeL):
     model_name_str = 'Abstractor_'
 
@@ -46,16 +36,43 @@ def save_checkpoint(opt, save_dict, max_rougeL):
     torch.save(save_dict, 'saved_models/' + model_name)
 
 
-def train(opt, data):
-    print('Loading GloVe pretrained vectors')
-    glove_embeddings = load_pth(opt['glove_path'])
+def validate(step, model, data_loader, device):
+    rouge1_sum, rouge2_sum, rougeL_sum = 0, 0, 0
+    count = 0
+    for _, batch in enumerate(data_loader):
+        model.eval()
+        batch = to_device(batch, device=device)
+        batch_size = len(batch['id'])
 
+        preds = model(batch['extracted']['text_unk'],
+                      batch['extracted']['text'],
+                      batch['extracted']['len']).cpu().numpy()
+        golds = batch['abstract']['origin']
+        for i in range(batch_size):
+            pred = strip_sequence(preds[i], len(preds[i]), data.vocab.bos_id, data.vocab.eos_id)
+            pred_text = idx2origin(pred, data.vocab, batch['oov_tokens'][i])
+            eval = sent_tokenize(pred_text)
+            ref = golds[i]
+
+            rouge1_sum += rouge.rouge_n(eval, ref, n=1)
+            rouge2_sum += rouge.rouge_n(eval, ref, n=2)
+            rougeL_sum += rouge.rouge_l_summary_level(eval, ref)
+            count += 1
+
+    print('step ' + str(step + 1) + '/' + str(len(data.train_loader)) +
+          ': ROUGE-1 ' + str(rouge1_sum / count) +
+          ' ROUGE-2 ' + str(rouge2_sum / count) +
+          ' ROUGE-L ' + str(rougeL_sum / count))
+    return rougeL_sum / count
+
+
+def train(opt, data):
     device = torch.device(opt['device'])
     model = PointerGenerator(opt=opt,
                              pad_id=data.vocab.pad_id,
                              bos_id=data.vocab.bos_id,
                              unk_id=data.vocab.unk_id,
-                             vectors=glove_embeddings).to(device)
+                             vectors=data.vectors).to(device)
 
     parameters = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = optim.Adam(parameters, lr=opt['learning_rate'])
@@ -70,13 +87,13 @@ def train(opt, data):
         for step, batch in enumerate(data.train_loader):
             model.train()
             batch = to_device(batch, device=device)
-            logits = model(batch['extracted']['words'],
-                           batch['extracted']['words_extended'],
-                           batch['extracted']['length'],
-                           batch['abstract']['words'],
-                           batch['abstract']['words_extended'],
-                           batch['abstract']['length'])
-            targets = batch['abstract']['words_extended']
+            logits = model(batch['extracted']['text_unk'],
+                           batch['extracted']['text'],
+                           batch['extracted']['len'],
+                           batch['abstract']['text_unk'],
+                           batch['abstract']['text'],
+                           batch['abstract']['len'])
+            targets = batch['abstract']['text']
 
             batch_loss = 0
             for i in range(len(logits) - 1):
@@ -91,31 +108,9 @@ def train(opt, data):
                 print('step ' + str(step + 1) + '/' + str(len(data.train_loader)) + ': loss ' + str(loss))
                 loss = 0
             if (step + 1) % opt['validate_every'] == 0:
-                rouge1_sum = 0
-                rouge2_sum = 0
-                rougeL_sum = 0
-                count = 0
-                for _, batch in enumerate(data.valid_loader):
-                    model.eval()
-                    batch = to_device(batch, device=device)
-                    preds = model(batch['extracted']['words'],
-                                  batch['extracted']['words_extended'],
-                                  batch['extracted']['length']).cpu().numpy()
-                    golds = batch['abstract']['words_extended'].cpu().numpy()
-                    for i in range(len(golds)):
-                        pred = strip(preds[i], len(preds[i]), data.vocab.bos_id, data.vocab.eos_id)
-                        gold = strip(golds[i], len(golds[i]), data.vocab.bos_id, data.vocab.eos_id)
-                        rouge1_sum += rouge_n(pred, gold, n=1)
-                        rouge2_sum += rouge_n(pred, gold, n=2)
-                        rougeL_sum += rouge_L(pred, gold)
-                        count += 1
-
-                print('step ' + str(step + 1) + '/' + str(len(data.train_loader)) +
-                      ': ROUGE-1 ' + str(rouge1_sum / count) +
-                      ' ROUGE-2 ' + str(rouge2_sum / count) +
-                      ' ROUGE-L ' + str(rougeL_sum / count))
-                if max_rougeL < rougeL_sum / count:
-                    max_rougeL = rougeL_sum / count
+                rougeL = validate(step, model, data.valid_loader, device)
+                if max_rougeL < rougeL:
+                    max_rougeL = rougeL
                     best_model = copy.deepcopy(model.state_dict())
                     best_opt = copy.deepcopy(optimizer.state_dict())
                     best_epoch = epoch
