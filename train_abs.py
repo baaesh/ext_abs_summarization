@@ -54,9 +54,9 @@ def validate(step, model, data_loader, device):
             eval = sent_tokenize(pred_text)
             ref = golds[i]
 
-            rouge1_sum += rouge.rouge_n(eval, ref, n=1)
-            rouge2_sum += rouge.rouge_n(eval, ref, n=2)
-            rougeL_sum += rouge.rouge_l_summary_level(eval, ref)
+            rouge1_sum += rouge.rouge_n(eval, ref, n=1)['f']
+            rouge2_sum += rouge.rouge_n(eval, ref, n=2)['f']
+            rougeL_sum += rouge.rouge_l_summary_level(eval, ref)['f']
             count += 1
 
     print('step ' + str(step + 1) + '/' + str(len(data.train_loader)) +

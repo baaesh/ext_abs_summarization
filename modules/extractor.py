@@ -31,7 +31,7 @@ class PointerNetwork(nn.Module):
         self.decoder = PointerNetworkDecoder(opt, input_size=enc_out_dim)
 
     def forward(self, source, lens=None, target=None, target_length=None):
-        num_sents = lens.sum(dim=-1)
+        num_sents = lens.gt(0).sum(dim=-1)
 
         ### Get mask
         source_rep_mask = get_rep_mask(num_sents)

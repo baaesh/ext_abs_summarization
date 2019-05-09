@@ -21,8 +21,7 @@ def remove_pad(tokens, pad_id):
 
 def point2result(points, origins):
     # points: batch_size x max_ext
-    batch_size, max_ext = points.size()
-    points = points.cpu().numpy()
+    batch_size, max_ext = points.shape
     batch_extracted = []
     for i in range(batch_size):
         point = points[i]
@@ -34,18 +33,18 @@ def point2result(points, origins):
     return batch_extracted
 
 
-def point2text(points, source, source_length, pad_id, device='cuda:0'):
+def point2text(points, source, pad_id, device='cuda:0'):
     # points: batch_size x max_ext
     batch_size, max_ext = points.size()
     points = points.cpu().numpy()
+    source  = source.cpu().numpy().tolist()
     batch_extracted = []
     batch_length = []
     for i in range(batch_size):
         point = points[i]
         extracted = []
         for j in range(max_ext):
-            if source[i][point[j]] == pad_id:
-                break
+            if point[j] == pad_id: break
             extracted += remove_pad(source[i][point[j]], pad_id)
 
         # heuristic... to avoid error

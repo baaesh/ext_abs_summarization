@@ -34,9 +34,9 @@ def a2c_loss(points, logits, rewards, scores):
     logits = logits.view(-1, num_sentence)
 
     points_one_hot = one_hot_embedding(points, batch_size * max_ext, num_sentence, logits.device)
-    log_probs = - torch.masked_select(logits, points_one_hot.byte()).view(batch_size, -1)
+    log_probs = torch.masked_select(logits, points_one_hot.byte()).view(batch_size, -1)
     advantages = rewards - scores
-    loss = (log_probs * advantages).mean()
+    loss = - (log_probs * advantages).mean()
     return loss
 
 
@@ -53,31 +53,29 @@ def validate(step, extractor, abstractor, data_loader, device):
         (points, logits), scores = extractor(batch['article']['sents_unk'],
                                              batch['article']['lens'])
 
-        ext_unk, ext_len, _ = point2text(points, batch['article']['sents_unk'],
-                                         batch['article']['lens'],
-                                         data.vocab.pad_id, device)
-        ext, _, _ = point2text(points,
-                               batch['article']['sent'],
-                               batch['article']['lens'],
-                               data.vocab.pad_id, device)
+        ext_unk, ext_len = point2text(points, batch['article']['sents_unk'],
+                                      data.vocab.pad_id, device)
+        ext, _ = point2text(points,
+                            batch['article']['sents'],
+                            data.vocab.pad_id, device)
         with torch.no_grad():
             abstractor.eval()
             preds = abstractor(ext_unk, ext, ext_len).cpu().numpy()
             golds = batch['abstract']['origin']
-            exts = point2result(points.cpu.numpy, batch['article']['origin'])
+            exts = point2result(points.cpu().numpy(), batch['article']['origin'])
 
         for i in range(batch_size):
             pred = strip_sequence(preds[i], len(preds[i]), data.vocab.bos_id, data.vocab.eos_id)
             pred_text = idx2origin(pred, data.vocab, batch['oov_tokens'][i])
             eval = sent_tokenize(pred_text)
             ref = golds[i]
-            if i == 0:
-                print(exts[i])
-                print(eval)
-                print(ref)
-            rouge1_sum += rouge.rouge_n(eval, ref, n=1)
-            rouge2_sum += rouge.rouge_n(eval, ref, n=2)
-            rougeL_sum += rouge.rouge_l_summary_level(eval, ref)
+            #if i == 0:
+            #    print(exts[i])
+            #    print(eval)
+            #    print(ref)
+            rouge1_sum += rouge.rouge_n(eval, ref, n=1)['f']
+            rouge2_sum += rouge.rouge_n(eval, ref, n=2)['f']
+            rougeL_sum += rouge.rouge_l_summary_level(eval, ref)['f']
             count += 1
     print('step ' + str(step + 1) + '/' + str(len(data.train_loader)) +
           ': ROUGE-1 ' + str(rouge1_sum / count) +
@@ -120,12 +118,10 @@ def train(opt, data):
                                                  batch['article']['lens'])
 
             points = points.detach()
-            ext_unk, ext_len, _ = point2text(points, batch['article']['sents_unk'],
-                                             batch['article']['lens'],
-                                             data.vocab.pad_id, device)
-            ext, _, _ = point2text(points, batch['article']['sents'],
-                                   batch['article']['lens'],
-                                   data.vocab.pad_id, device)
+            ext_unk, ext_len = point2text(points, batch['article']['sents_unk'],
+                                          -1, device)
+            ext, _ = point2text(points, batch['article']['sents'],
+                                -1, device)
 
             with torch.no_grad():
                 abstractor.eval()
@@ -138,7 +134,7 @@ def train(opt, data):
                 pred_text = idx2origin(pred, data.vocab, batch['oov_tokens'][i])
                 eval = sent_tokenize(pred_text)
                 ref = golds[i]
-                rewards.append(rouge.rouge_l_summary_level(eval, ref))
+                rewards.append(rouge.rouge_l_summary_level(eval, ref)['f'])
             rewards = to_device(torch.tensor(rewards).unsqueeze(-1).expand_as(scores).contiguous(), device)
 
             batch_critic_loss = critic_criterion(scores, rewards)

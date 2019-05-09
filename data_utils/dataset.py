@@ -146,7 +146,7 @@ class CnnDmDataset(Dataset):
                 continue
             d['id'].append(ex['id'])
             d['article']['sents'].append(self.to_tensor(art_sents))
-            d['article']['sents_unk'].append(art_sents_unk)
+            d['article']['sents_unk'].append(self.to_tensor(art_sents_unk))
             d['article']['lens'].append(self.to_tensor(art_lens))
             d['article']['origin'].append(ex['article'])
             d['oov_tokens'].append(oov_tokens)
@@ -199,7 +199,8 @@ class CnnDmDataset(Dataset):
             d['oov_tokens'].append(oov_tokens)
             d['abstract']['text'].append(self.to_tensor(abs_text))
             d['abstract']['text_unk'].append(self.to_tensor(abs_text_unk))
-            d['abstract']['length'].append(abs_len)
+            d['abstract']['len'].append(abs_len)
+            d['abstract']['origin'].append(ex['abstract'])
 
         d['extracted']['text'] = pad_sequence(
             d['extracted']['text'], batch_first=True, padding_value=self._vocab.pad_id)

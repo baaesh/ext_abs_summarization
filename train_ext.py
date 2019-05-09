@@ -11,7 +11,7 @@ from config import set_args
 from data import CnnDm
 from metric import f1_score
 from modules.extractor import PointerNetwork, HierarchicalPointerNetwork
-from modules.utils import point2result, strip_positions
+from modules.utils import point2result
 import rouge
 
 

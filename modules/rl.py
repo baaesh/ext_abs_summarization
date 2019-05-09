@@ -63,13 +63,14 @@ class ActorCritic(nn.Module):
         ### Critic
         self.critic = PtrScorer(opt, self._ext.decoder)
 
-    def forward(self, source, num_sentence, length):
+    def forward(self, source, lens=None):
         batch_size, _, max_length = source.size()
+        num_sents = lens.gt(0).sum(dim=-1)
 
         # preds: batch_size x max_ext
-        (preds, logits), enc_outs = self._ext(source, num_sentence)
+        (preds, logits), enc_outs = self._ext(source, lens)
         _, max_ext = preds.size()
 
-        scores = self.critic(enc_outs, preds, num_sentence, max_ext)
+        scores = self.critic(enc_outs, preds, num_sents, max_ext)
 
         return (preds, logits), scores
